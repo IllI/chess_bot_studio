@@ -45,29 +45,52 @@
             background: #1e293b;
             border-radius: 3px;
         }
+        /* Custom scrollbar for logs */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.5);
+        }
     </style>
     <script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@19.0.0",
-    "react-dom": "https://esm.sh/react-dom@19.0.0",
-    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
-    "lucide-react": "https://esm.sh/lucide-react@0.462.0",
-    "@google/genai": "https://esm.sh/@google/genai@0.2.1",
-    "framer-motion": "https://esm.sh/framer-motion@11.11.11",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
-  }
-}
-</script>
+    {
+      "imports": {
+        "react": "https://esm.sh/react@19.0.0",
+        "react-dom": "https://esm.sh/react-dom@19.0.0",
+        "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+        "lucide-react": "https://esm.sh/lucide-react@0.462.0",
+        "@google/genai": "https://esm.sh/@google/genai@0.2.1",
+        "framer-motion": "https://esm.sh/framer-motion@11.11.11"
+      }
+    }
+    </script>
 </head>
 <body>
     <div id="root"></div>
-    <!-- 
-      By using data-type="module", Babel fetches the .js file (which server identifies correctly)
-      and transpiles it. The internal imports will also be handled by Babel.
-    -->
     <script type="text/babel" data-presets="typescript,react" data-type="module">
-        import "./index.js";
+        import React from 'react';
+        import ReactDOM from 'react-dom/client';
+        import App from './App.js';
+
+        const rootElement = document.getElementById('root');
+        if (rootElement) {
+            const root = ReactDOM.createRoot(rootElement);
+            root.render(
+                <React.StrictMode>
+                    <App />
+                </React.StrictMode>
+            );
+        } else {
+            console.error("Critical Error: #root element not found in DOM.");
+        }
     </script>
 </body>
 </html>
