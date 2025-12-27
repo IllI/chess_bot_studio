@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""
-Main entry point for Chess Engine Tuner.
-"""
+"""Main entry point for Chess Bot Studio (self-contained in this folder)."""
 
 import argparse
 import sys
-from chess_engine_tuner.analysis import setup_logging
-from chess_engine_tuner.custom_lichess_bot import LichessBotClient
-from chess_engine_tuner.multi_bot_cli import main as multi_bot_main
+from .analysis import setup_logging
+from .custom_lichess_bot import LichessBotClient
+from .multi_bot_cli import main as multi_bot_main
+from .wizard import run_wizard
 
 
 def main():
-    """Main function to run the chess engine tuner."""
-    parser = argparse.ArgumentParser(description='Chess Engine Tuner')
-    parser.add_argument('--mode', choices=['bot', 'analyze', 'test', 'multi-bot'], 
+    """Main function to run Chess Bot Studio."""
+    parser = argparse.ArgumentParser(description='Chess Bot Studio')
+    parser.add_argument('--mode', choices=['bot', 'analyze', 'test', 'multi-bot', 'wizard'], 
                        default='test', help='Run mode')
+
     parser.add_argument('--token', help='Lichess API token')
     parser.add_argument('--depth', type=int, default=4, 
                        help='Search depth')
@@ -26,6 +26,7 @@ def main():
     setup_logging()
     
     if args.mode == 'bot':
+
         # LichessBotClient will automatically try to load from .env if token is None
         try:
             bot = LichessBotClient(args.token)
@@ -36,23 +37,31 @@ def main():
             sys.exit(1)
     
     elif args.mode == 'multi-bot':
+
         # Delegate to multi-bot CLI with remaining arguments
         print("Starting multi-bot management interface...")
         multi_bot_main(remaining)
     
     elif args.mode == 'test':
-        print("Chess Engine Tuner - Test Mode")
+
+        print("Chess Bot Studio - Test Mode")
         print("Project structure created successfully!")
         print("Available modes:")
         print("1. Single bot: python main.py --mode bot --token YOUR_TOKEN")
         print("2. Multi-bot management: python main.py --mode multi-bot bot create <bot-id>")
         print("3. Analysis: python main.py --mode analyze")
+        print("4. Wizard (one-click lab): python main.py --mode wizard")
+
         print("\nFor multi-bot A/B testing:")
         print("- Create bots: python main.py --mode multi-bot bot create <bot-id>")
         print("- Start A/B test: python main.py --mode multi-bot ab-test create <bot1> <bot2>")
     
     elif args.mode == 'analyze':
         print("Analysis mode - coming soon!")
+
+    elif args.mode == 'wizard':
+        # Interactive launcher that starts UI, config API, and preferred bot
+        run_wizard()
 
 
 if __name__ == '__main__':
