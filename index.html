@@ -45,15 +45,6 @@
             background: #1e293b;
             border-radius: 3px;
         }
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-        .shimmer {
-            background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.05) 50%, rgba(255,255,255,0) 100%);
-            background-size: 200% 100%;
-            animation: shimmer 2s infinite;
-        }
     </style>
     <script type="importmap">
 {
@@ -64,8 +55,7 @@
     "lucide-react": "https://esm.sh/lucide-react@0.462.0",
     "@google/genai": "https://esm.sh/@google/genai@0.2.1",
     "framer-motion": "https://esm.sh/framer-motion@11.11.11",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/"
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/"
   }
 }
 </script>
@@ -73,11 +63,11 @@
 <body>
     <div id="root"></div>
     <!-- 
-      By using an inline script with type="text/babel", we let Babel handle the fetching
-      of index.tsx via XHR/Fetch, which bypasses the browser's strict module MIME check.
+      By using data-type="module", Babel fetches the .js file (which server identifies correctly)
+      and transpiles it. The internal imports will also be handled by Babel.
     -->
     <script type="text/babel" data-presets="typescript,react" data-type="module">
-        import "./index.tsx";
+        import "./index.js";
     </script>
 </body>
 </html>
