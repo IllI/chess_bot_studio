@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChessAI Tutor: Architect Lab</title>
+    <title>ChessMaster AI Tutor: Architect Lab</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -45,7 +45,6 @@
             background: #1e293b;
             border-radius: 3px;
         }
-        /* Custom scrollbar for logs */
         .custom-scrollbar::-webkit-scrollbar {
             width: 4px;
         }
@@ -58,6 +57,15 @@
         }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
             background: rgba(99, 102, 241, 0.5);
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.05), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 3s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
         }
     </style>
     <script type="importmap">
@@ -75,21 +83,410 @@
 </head>
 <body>
     <div id="root"></div>
-    <script type="text/babel" data-presets="typescript,react" data-type="module">
-        import React from 'react';
+    <script type="text/babel" data-presets="react,typescript" data-type="module">
+        import React, { useState, useEffect, useRef } from 'react';
         import ReactDOM from 'react-dom/client';
-        import App from './App.js';
+        import { 
+            Brain, Settings2, PlayCircle, BookOpen, Layers, Sparkles, 
+            ChevronRight, Github, Target, ShieldAlert, Zap, InfoIcon, 
+            RefreshCcw, Play, Swords, Monitor, Terminal, RotateCcw, 
+            Cpu, Network, ArrowRight, Activity 
+        } from 'lucide-react';
+        import { GoogleGenAI } from "@google/genai";
+        import { motion, AnimatePresence } from 'framer-motion';
+
+        // --- COMPONENTS ---
+
+        const LearningCenter = ({ onContinue }) => {
+          return (
+            <div className="max-w-5xl mx-auto py-12 space-y-20">
+              <div className="text-center space-y-8">
+                <motion.div 
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-widest mb-4"
+                >
+                  <Sparkles size={14} /> AI Fundamentals 101
+                </motion.div>
+                <h1 className="text-6xl md:text-7xl font-black tracking-tight text-white leading-tight">
+                  Master the <span className="text-indigo-500">Logic</span> <br/> behind the Bot.
+                </h1>
+                <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                  Chess AI is a perfect sandbox to understand how machines "see" complexity through mathematical scoring and tree search.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <ConceptCard icon={<Cpu className="text-indigo-400" />} title="Heuristics" description="Position evaluation logic: transforming a board state into a single numeric score." />
+                <ConceptCard icon={<Network className="text-emerald-400" />} title="Search Tree" description="Minimax and Alpha-Beta: how computers look ahead into millions of future possibilities." />
+                <ConceptCard icon={<Target className="text-red-400" />} title="Weight Tuning" description="Balancing priorities: Should the bot value raw material or positional mobility more?" />
+              </div>
+
+              <div className="glass rounded-[40px] p-12 flex flex-col md:flex-row items-center justify-between gap-12 bg-indigo-600/5 border-indigo-600/10 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] pointer-events-none" />
+                <div className="space-y-4">
+                  <h3 className="text-3xl font-bold text-white">Ready to Architect?</h3>
+                  <p className="text-slate-400 text-lg">Initialize your configuration and enter the Tuning Lab.</p>
+                </div>
+                <button 
+                  onClick={onContinue}
+                  className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-bold text-xl flex items-center gap-4 shadow-2xl shadow-indigo-600/30 transition-all active:scale-95 group"
+                >
+                  Enter Lab <ArrowRight className="group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            </div>
+          );
+        };
+
+        const ConceptCard = ({ icon, title, description }) => (
+          <div className="glass p-8 rounded-[36px] bg-slate-900/30 border-white/5 hover:border-white/10 transition-all">
+            <div className="p-4 bg-slate-950 rounded-2xl w-fit mb-6 shadow-inner">{icon}</div>
+            <h4 className="text-lg font-bold mb-3 text-white">{title}</h4>
+            <p className="text-slate-400 text-sm leading-relaxed">{description}</p>
+          </div>
+        );
+
+        const TuningLab = ({ config, setConfig }) => {
+          const [aiReport, setAiReport] = useState(null);
+          const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+          const updateWeight = (category, key, value) => {
+            const next = { ...config };
+            if (key && typeof next[category] === 'object') {
+              next[category][key] = value;
+            } else {
+              next[category] = value;
+            }
+            setConfig(next);
+          };
+
+          const getAIAnalysis = async () => {
+            setIsAnalyzing(true);
+            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            try {
+              const prompt = `Act as a senior chess engine architect. Analyze this configuration: ${JSON.stringify(config)}. 
+              - What is the bot's "personality"?
+              - What are its likely tactical weaknesses?
+              - Provide 3 short bullet points. Be technical but accessible.`;
+              const response = await ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: prompt
+              });
+              setAiReport(response.text);
+            } catch (e) {
+              console.error(e);
+              setAiReport("Consultation failed. Check architect uplink.");
+            } finally {
+              setIsAnalyzing(false);
+            }
+          };
+
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-8 space-y-6">
+                <div className="glass rounded-[40px] p-10 shadow-2xl relative overflow-hidden bg-slate-900/40">
+                  <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/5 blur-[120px] pointer-events-none" />
+                  
+                  <div className="flex items-center justify-between mb-12">
+                    <div className="space-y-1">
+                      <h2 className="text-3xl font-black text-white">Heuristic Calibration</h2>
+                      <p className="text-slate-500 font-medium">Define the mathematical worth of every position.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+                    <section className="space-y-10">
+                      <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+                        <Target className="text-indigo-400" size={18} />
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Static Piece Values</h3>
+                      </div>
+                      
+                      <div className="space-y-8">
+                        {Object.entries(config.piece_values).map(([piece, val]) => (
+                          <div key={piece} className="space-y-3">
+                            <div className="flex justify-between items-end">
+                              <span className="text-sm font-bold text-slate-300 capitalize">
+                                {piece}
+                              </span>
+                              <span className="mono text-indigo-400 text-sm font-bold bg-indigo-500/10 px-2 py-0.5 rounded-lg">{val}</span>
+                            </div>
+                            <input
+                              type="range" min="0" max="1500" step="10" value={val}
+                              onChange={(e) => updateWeight('piece_values', piece, parseInt(e.target.value))}
+                              className="w-full accent-indigo-500"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+
+                    <section className="space-y-10">
+                      <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+                        <ShieldAlert className="text-emerald-400" size={18} />
+                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Strategic Weighting</h3>
+                      </div>
+
+                      <div className="space-y-8">
+                        <div className="space-y-4">
+                          <div className="flex justify-between text-sm font-bold text-slate-300">
+                            <span>Mobility</span>
+                            <span className="mono text-emerald-400">+{config.mobility_weight}%</span>
+                          </div>
+                          <input
+                            type="range" min="0" max="100" step="1" value={config.mobility_weight}
+                            onChange={(e) => updateWeight('mobility_weight', null, parseInt(e.target.value))}
+                            className="w-full accent-emerald-500"
+                          />
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex justify-between text-sm font-bold text-slate-300">
+                            <span>King Safety Penalty</span>
+                            <span className="mono text-red-400">-{config.king_safety}</span>
+                          </div>
+                          <input
+                            type="range" min="0" max="200" step="5" value={config.king_safety}
+                            onChange={(e) => updateWeight('king_safety', null, parseInt(e.target.value))}
+                            className="w-full accent-red-500"
+                          />
+                        </div>
+
+                        <div className="p-6 bg-slate-950/50 rounded-3xl border border-white/5 mt-8">
+                          <div className="flex justify-between text-sm font-bold text-slate-300 mb-4">
+                            <span>Search Depth</span>
+                            <span className="mono text-indigo-400">{config.search_depth} Layers</span>
+                          </div>
+                          <input
+                            type="range" min="1" max="10" step="1" value={config.search_depth}
+                            onChange={(e) => updateWeight('search_depth', null, parseInt(e.target.value))}
+                            className="w-full accent-indigo-400"
+                          />
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-4 space-y-6">
+                <div className="glass rounded-[32px] p-8 shadow-xl border-indigo-500/20 bg-indigo-500/5 flex flex-col h-fit">
+                  <div className="flex items-center gap-3 mb-6 text-white">
+                    <Sparkles className="text-indigo-400" size={20} />
+                    <h3 className="font-bold text-xl">Architect Insight</h3>
+                  </div>
+                  <button
+                    onClick={getAIAnalysis}
+                    disabled={isAnalyzing}
+                    className="w-full py-4 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 rounded-2xl font-bold transition-all text-white flex items-center justify-center gap-3"
+                  >
+                    {isAnalyzing ? <RefreshCcw className="animate-spin" size={18} /> : <>Generate Report <ChevronRight size={18} /></>}
+                  </button>
+                  <AnimatePresence>
+                    {aiReport && (
+                      <motion.div 
+                        initial={{ opacity: 0, y: 10 }} 
+                        animate={{ opacity: 1, y: 0 }} 
+                        className="mt-6 text-sm text-slate-300 bg-black/30 p-4 rounded-xl border border-white/5"
+                      >
+                        {aiReport}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        const EngineArena = ({ config }) => {
+          const [isSimulating, setIsSimulating] = useState(false);
+          const [nodes, setNodes] = useState(0);
+          const [evalScore, setEvalScore] = useState(0.0);
+          const [logs, setLogs] = useState([]);
+          const logEndRef = useRef(null);
+
+          useEffect(() => {
+            logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, [logs]);
+
+          const addLog = (msg) => {
+            setLogs(prev => [...prev.slice(-15), msg]);
+          };
+
+          const startTest = () => {
+            setIsSimulating(true);
+            setLogs([]);
+            setNodes(0);
+            setEvalScore(0.0);
+            
+            addLog("> UCI ok");
+            addLog("> position startpos moves e2e4 e7e5");
+            
+            let n = 0;
+            const interval = setInterval(() => {
+              const increment = Math.floor(Math.random() * 50000);
+              n += increment;
+              setNodes(n);
+              setEvalScore(prev => prev + (Math.random() - 0.5) * 0.1);
+              if (Math.random() > 0.8) {
+                addLog(`info depth ${config.search_depth} nodes ${n} score cp ${Math.floor(evalScore * 100)} pv g1f3`);
+              }
+            }, 200);
+
+            setTimeout(() => {
+              clearInterval(interval);
+              setIsSimulating(false);
+              addLog("bestmove g1f3");
+            }, 4000);
+          };
+
+          return (
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="lg:col-span-7">
+                <div className="glass rounded-[48px] p-10 aspect-square flex flex-col items-center justify-center relative overflow-hidden bg-slate-900/40">
+                  <div className="text-center space-y-8 relative z-10">
+                    {isSimulating ? (
+                      <div className="flex flex-col items-center gap-6">
+                        <div className="relative">
+                          <div className="w-32 h-32 rounded-full border-4 border-indigo-500/10 border-t-indigo-500 animate-spin" />
+                          <Cpu className="absolute inset-0 m-auto text-indigo-400 opacity-50" size={40} />
+                        </div>
+                        <div className="mono text-4xl font-bold text-white tracking-tighter">{(nodes/1000).toFixed(1)}k Nodes</div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500 font-bold">Search Horizon: Depth {config.search_depth}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-8">
+                        <Swords size={64} className="text-slate-700 mx-auto" />
+                        <button
+                          onClick={startTest}
+                          className="px-12 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[24px] font-bold text-xl flex items-center gap-3 shadow-xl shadow-indigo-600/20 transition-all active:scale-95"
+                        >
+                          <Play size={20} fill="currentColor" /> Start Simulation
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="absolute right-10 top-1/2 -translate-y-1/2 w-4 h-[60%] bg-slate-950/80 rounded-full overflow-hidden border border-white/10 p-1">
+                    <motion.div
+                      animate={{ height: `${50 + (evalScore * 10)}%` }}
+                      className={`w-full rounded-full transition-all duration-700 ${evalScore >= 0 ? 'bg-indigo-500' : 'bg-red-500'}`}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="lg:col-span-5 space-y-6">
+                <div className="glass rounded-[32px] p-8 h-[400px] flex flex-col bg-black/20">
+                  <h3 className="font-bold text-sm uppercase tracking-widest mb-6 flex items-center gap-3 text-slate-400">
+                    <Terminal size={16} className="text-indigo-400" /> UCI Engine Output
+                  </h3>
+                  <div className="flex-1 overflow-y-auto space-y-1 mono text-[11px] text-slate-400 custom-scrollbar">
+                    {logs.length === 0 && <div className="italic text-slate-600">Waiting for engine start...</div>}
+                    {logs.map((log, i) => (
+                      <div key={i} className="flex gap-2">
+                        <span className="text-indigo-500 shrink-0 opacity-50">›</span>
+                        <span>{log}</span>
+                      </div>
+                    ))}
+                    <div ref={logEndRef} />
+                  </div>
+                </div>
+                
+                <div className="glass rounded-[32px] p-6 bg-indigo-500/5 border-indigo-500/10">
+                   <div className="flex justify-between items-center">
+                      <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Live Evaluation</span>
+                      <span className={`mono text-sm font-bold ${isSimulating ? 'text-indigo-400' : 'text-slate-600'}`}>
+                        {isSimulating ? (evalScore >= 0 ? '+' : '') + evalScore.toFixed(2) : '0.00'}
+                      </span>
+                   </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        // --- MAIN APP ---
+
+        const DEFAULT_CONFIG = {
+          name: "New Recruit",
+          piece_values: { pawn: 100, knight: 320, bishop: 330, rook: 500, queen: 900 },
+          mobility_weight: 10,
+          king_safety: 20,
+          search_depth: 4
+        };
+
+        const App = () => {
+          const [activeView, setActiveView] = useState('learn');
+          const [config, setConfig] = useState(DEFAULT_CONFIG);
+
+          return (
+            <div className="min-h-screen flex flex-col bg-[#020617] text-slate-100">
+              <nav className="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-600/30">
+                    <Brain className="text-white w-6 h-6" />
+                  </div>
+                  <div>
+                    <h1 className="text-xl font-bold tracking-tight text-white">ChessMaster <span className="text-indigo-400">Architect</span></h1>
+                    <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">AI Training Environment</p>
+                  </div>
+                </div>
+
+                <div className="flex gap-2 bg-slate-900/50 p-1 rounded-2xl border border-white/5">
+                  <NavButton active={activeView === 'learn'} onClick={() => setActiveView('learn')} icon={<BookOpen size={18} />} label="Academy" />
+                  <NavButton active={activeView === 'tune'} onClick={() => setActiveView('tune')} icon={<Settings2 size={18} />} label="Lab" />
+                  <NavButton active={activeView === 'arena'} onClick={() => setActiveView('arena')} icon={<PlayCircle size={18} />} label="Arena" />
+                </div>
+
+                <div className="hidden md:flex items-center gap-4">
+                  <a href="https://github.com/IllI/chess_bot" target="_blank" className="text-slate-400 hover:text-white transition-colors">
+                    <Github size={20} />
+                  </a>
+                  <div className="h-8 w-[1px] bg-white/10" />
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    <span className="text-[10px] font-bold text-green-500 uppercase">Engine Online</span>
+                  </div>
+                </div>
+              </nav>
+
+              <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+                {activeView === 'learn' && <LearningCenter onContinue={() => setActiveView('tune')} />}
+                {activeView === 'tune' && <TuningLab config={config} setConfig={setConfig} />}
+                {activeView === 'arena' && <EngineArena config={config} />}
+              </main>
+
+              <footer className="py-6 px-8 border-t border-white/5 bg-slate-950/50 text-slate-500 text-xs flex justify-between">
+                <p>© 2024 Chess Bot Instructional Platform</p>
+                <div className="flex gap-6">
+                  <button className="hover:text-slate-300">Privacy</button>
+                  <button className="hover:text-slate-300">Docs</button>
+                  <button className="hover:text-slate-300">API Status</button>
+                </div>
+              </footer>
+            </div>
+          );
+        };
+
+        const NavButton = ({ active, onClick, icon, label }) => (
+          <button
+            onClick={onClick}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${
+              active 
+                ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' 
+                : 'text-slate-400 hover:text-white hover:bg-white/5'
+            }`}
+          >
+            {icon}
+            <span className="text-sm font-semibold">{label}</span>
+          </button>
+        );
 
         const rootElement = document.getElementById('root');
         if (rootElement) {
-            const root = ReactDOM.createRoot(rootElement);
-            root.render(
-                <React.StrictMode>
-                    <App />
-                </React.StrictMode>
-            );
-        } else {
-            console.error("Critical Error: #root element not found in DOM.");
+          const root = ReactDOM.createRoot(rootElement);
+          root.render(<App />);
         }
     </script>
 </body>
