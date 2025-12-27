@@ -4,15 +4,7 @@ import TuningLab from './components/TuningLab.js';
 import EngineArena from './components/EngineArena.js';
 import LearningCenter from './components/LearningCenter.js';
 
-export type BotConfig = {
-  name: string;
-  piece_values: { [key: string]: number };
-  mobility_weight: number;
-  king_safety: number;
-  search_depth: number;
-};
-
-const DEFAULT_CONFIG: BotConfig = {
+const DEFAULT_CONFIG = {
   name: "New Recruit",
   piece_values: { pawn: 100, knight: 320, bishop: 330, rook: 500, queen: 900 },
   mobility_weight: 10,
@@ -20,12 +12,12 @@ const DEFAULT_CONFIG: BotConfig = {
   search_depth: 4
 };
 
-const App: React.FC = () => {
-  const [activeView, setActiveView] = useState<'learn' | 'tune' | 'arena'>('learn');
-  const [config, setConfig] = useState<BotConfig>(DEFAULT_CONFIG);
+const App = () => {
+  const [activeView, setActiveView] = useState('learn');
+  const [config, setConfig] = useState(DEFAULT_CONFIG);
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[#020617] text-slate-100">
       <nav className="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-600/30">
@@ -73,7 +65,7 @@ const App: React.FC = () => {
   );
 };
 
-const NavButton: React.FC<{ active: boolean, onClick: () => void, icon: React.ReactNode, label: string }> = ({ active, onClick, icon, label }) => (
+const NavButton = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
     className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${

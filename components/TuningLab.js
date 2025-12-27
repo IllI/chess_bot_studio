@@ -31,6 +31,7 @@ const TuningLab = ({ config, setConfig }) => {
       });
       setAiReport(response.text);
     } catch (e) {
+      console.error(e);
       setAiReport("Consultation failed. Check architect uplink.");
     } finally {
       setIsAnalyzing(false);
@@ -40,7 +41,7 @@ const TuningLab = ({ config, setConfig }) => {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
       <div className="lg:col-span-8 space-y-6">
-        <div className="glass rounded-[40px] p-10 shadow-2xl relative overflow-hidden">
+        <div className="glass rounded-[40px] p-10 shadow-2xl relative overflow-hidden bg-slate-900/40">
           <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/5 blur-[120px] pointer-events-none" />
           
           <div className="flex items-center justify-between mb-12">
@@ -52,7 +53,7 @@ const TuningLab = ({ config, setConfig }) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
             <section className="space-y-10">
-              <div className="flex items-center gap-3 border-b border-white/5 pb-4 text-white">
+              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
                 <Target className="text-indigo-400" size={18} />
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Static Piece Values</h3>
               </div>
@@ -69,7 +70,7 @@ const TuningLab = ({ config, setConfig }) => {
                     <input
                       type="range" min="0" max="1500" step="10" value={val}
                       onChange={(e) => updateWeight('piece_values', piece, parseInt(e.target.value))}
-                      className="w-full"
+                      className="w-full accent-indigo-500"
                     />
                   </div>
                 ))}
@@ -77,7 +78,7 @@ const TuningLab = ({ config, setConfig }) => {
             </section>
 
             <section className="space-y-10">
-              <div className="flex items-center gap-3 border-b border-white/5 pb-4 text-white">
+              <div className="flex items-center gap-3 border-b border-white/5 pb-4">
                 <ShieldAlert className="text-emerald-400" size={18} />
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Strategic Weighting</h3>
               </div>
@@ -91,7 +92,7 @@ const TuningLab = ({ config, setConfig }) => {
                   <input
                     type="range" min="0" max="100" step="1" value={config.mobility_weight}
                     onChange={(e) => updateWeight('mobility_weight', null, parseInt(e.target.value))}
-                    className="w-full"
+                    className="w-full accent-emerald-500"
                   />
                 </div>
 
@@ -107,7 +108,7 @@ const TuningLab = ({ config, setConfig }) => {
                   />
                 </div>
 
-                <div className="p-6 bg-slate-900/50 rounded-3xl border border-white/5 mt-8">
+                <div className="p-6 bg-slate-950/50 rounded-3xl border border-white/5 mt-8">
                   <div className="flex justify-between text-sm font-bold text-slate-300 mb-4">
                     <span>Search Depth</span>
                     <span className="mono text-indigo-400">{config.search_depth} Layers</span>
@@ -115,7 +116,7 @@ const TuningLab = ({ config, setConfig }) => {
                   <input
                     type="range" min="1" max="10" step="1" value={config.search_depth}
                     onChange={(e) => updateWeight('search_depth', null, parseInt(e.target.value))}
-                    className="w-full"
+                    className="w-full accent-indigo-400"
                   />
                 </div>
               </div>
@@ -139,7 +140,11 @@ const TuningLab = ({ config, setConfig }) => {
           </button>
           <AnimatePresence>
             {aiReport && (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-6 text-sm text-slate-300">
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }} 
+                animate={{ opacity: 1, y: 0 }} 
+                className="mt-6 text-sm text-slate-300 bg-black/30 p-4 rounded-xl border border-white/5"
+              >
                 {aiReport}
               </motion.div>
             )}
