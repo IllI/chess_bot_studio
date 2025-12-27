@@ -1,88 +1,89 @@
-
-import React, { useState, useEffect } from 'react';
-import { Brain, Cpu, BookOpen, ChevronRight, Info, Save, Play, RefreshCcw, Sparkles } from 'lucide-react';
-import TuningLab from './components/TuningLab';
-import LearningCenter from './components/LearningCenter';
-import EngineArena from './components/EngineArena';
+import React, { useState } from 'react';
+import { Brain, Settings2, PlayCircle, BookOpen, Layers, Sparkles, ChevronRight, Github } from 'lucide-react';
+import TuningLab from './components/TuningLab.tsx';
+import EngineArena from './components/EngineArena.tsx';
+import LearningCenter from './components/LearningCenter.tsx';
 
 export type BotConfig = {
+  name: string;
   piece_values: { [key: string]: number };
   mobility_weight: number;
-  pawn_structure_bonus: { [key: string]: number };
-  king_safety_penalty: { [key: string]: number };
+  king_safety: number;
   search_depth: number;
 };
 
-const INITIAL_CONFIG: BotConfig = {
+const DEFAULT_CONFIG: BotConfig = {
+  name: "New Recruit",
   piece_values: { pawn: 100, knight: 320, bishop: 330, rook: 500, queen: 900 },
-  mobility_weight: 10.0,
-  pawn_structure_bonus: { passed_pawn: 50, doubled_pawn: -20, isolated_pawn: -15 },
-  king_safety_penalty: { open_file: -30, king_in_center: -40 },
+  mobility_weight: 10,
+  king_safety: 20,
   search_depth: 4
 };
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'learn' | 'tune' | 'arena'>('learn');
-  const [config, setConfig] = useState<BotConfig>(INITIAL_CONFIG);
-
-  const handleUpdateConfig = (newConfig: BotConfig) => {
-    setConfig(newConfig);
-  };
+  const [activeView, setActiveView] = useState<'learn' | 'tune' | 'arena'>('learn');
+  const [config, setConfig] = useState<BotConfig>(DEFAULT_CONFIG);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-blue-600 rounded-lg">
-              <Brain className="text-white w-6 h-6" />
-            </div>
-            <h1 className="text-xl font-bold tracking-tight bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-              ChessMaster AI Architect
-            </h1>
+    <div className="min-h-screen flex flex-col">
+      <nav className="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-600/30">
+            <Brain className="text-white w-6 h-6" />
           </div>
-          <nav className="flex gap-1 bg-slate-800/50 p-1 rounded-xl border border-slate-700">
-            <TabButton active={activeTab === 'learn'} onClick={() => setActiveTab('learn')} icon={<BookOpen size={18} />} label="Curriculum" />
-            <TabButton active={activeTab === 'tune'} onClick={() => setActiveTab('tune')} icon={<Cpu size={18} />} label="Tuning Lab" />
-            <TabButton active={activeTab === 'arena'} onClick={() => setActiveTab('arena')} icon={<Play size={18} />} label="Arena" />
-          </nav>
+          <div>
+            <h1 className="text-xl font-bold tracking-tight">ChessMaster <span className="text-indigo-400">Architect</span></h1>
+            <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">AI Training Environment</p>
+          </div>
         </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="flex-1 max-w-7xl mx-auto w-full p-6">
-        {activeTab === 'learn' && <LearningCenter onStartTuning={() => setActiveTab('tune')} />}
-        {activeTab === 'tune' && <TuningLab config={config} setConfig={handleUpdateConfig} />}
-        {activeTab === 'arena' && <EngineArena config={config} />}
+        <div className="flex gap-2 bg-slate-900/50 p-1 rounded-2xl border border-white/5">
+          <NavButton active={activeView === 'learn'} onClick={() => setActiveView('learn')} icon={<BookOpen size={18} />} label="Academy" />
+          <NavButton active={activeView === 'tune'} onClick={() => setActiveView('tune')} icon={<Settings2 size={18} />} label="Lab" />
+          <NavButton active={activeView === 'arena'} onClick={() => setActiveView('arena')} icon={<PlayCircle size={18} />} label="Arena" />
+        </div>
+
+        <div className="hidden md:flex items-center gap-4">
+          <a href="https://github.com/IllI/chess_bot" target="_blank" className="text-slate-400 hover:text-white transition-colors">
+            <Github size={20} />
+          </a>
+          <div className="h-8 w-[1px] bg-white/10" />
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+            <span className="text-[10px] font-bold text-green-500 uppercase">Engine Online</span>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+        {activeView === 'learn' && <LearningCenter onContinue={() => setActiveView('tune')} />}
+        {activeView === 'tune' && <TuningLab config={config} setConfig={setConfig} />}
+        {activeView === 'arena' && <EngineArena config={config} />}
       </main>
 
-      {/* Footer Status */}
-      <footer className="border-t border-slate-800 p-4 bg-slate-900/80 text-xs text-slate-500 flex justify-between px-8">
-        <div className="flex gap-4">
-          <span>Model: Gemini 3 Flash (Tutor)</span>
-          <span>Engine: Custom Heuristic V1.2</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-          Lichess API Connected
+      <footer className="py-6 px-8 border-t border-white/5 bg-slate-950/50 text-slate-500 text-xs flex justify-between">
+        <p>© 2024 Chess Bot Instructional Platform</p>
+        <div className="flex gap-6">
+          <button className="hover:text-slate-300">Privacy</button>
+          <button className="hover:text-slate-300">Docs</button>
+          <button className="hover:text-slate-300">API Status</button>
         </div>
       </footer>
     </div>
   );
 };
 
-const TabButton: React.FC<{ active: boolean, onClick: () => void, icon: React.ReactNode, label: string }> = ({ active, onClick, icon, label }) => (
+const NavButton: React.FC<{ active: boolean, onClick: () => void, icon: React.ReactNode, label: string }> = ({ active, onClick, icon, label }) => (
   <button
     onClick={onClick}
-    className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all duration-200 ${
+    className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${
       active 
-        ? 'bg-slate-700 text-white shadow-lg border border-slate-600' 
-        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
+        ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' 
+        : 'text-slate-400 hover:text-white hover:bg-white/5'
     }`}
   >
     {icon}
-    <span className="font-medium">{label}</span>
+    <span className="text-sm font-semibold">{label}</span>
   </button>
 );
 
