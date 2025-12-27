@@ -1,0 +1,18 @@
+{
+  "default": {
+    "config_id": "default",
+    "total_games": 1,
+    "wins": 1,
+    "losses": 0,
+    "draws": 0,
+    "win_rate": 1.0,
+    "average_game_length": 1.0,
+    "average_game_duration": 0.002004,
+    "average_opponent_rating": 1500,
+    "rating_change_total": 20,
+    "rating_change_average": 20.0,
+    "nodes_per_move_average": 1000.0,
+    "time_per_move_average": 1.5,
+    "search_depth_average": 4.0
+  }
+}

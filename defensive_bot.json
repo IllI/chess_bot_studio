@@ -1,0 +1,25 @@
+{
+  "piece_values": {
+    "pawn": 95,
+    "knight": 310,
+    "bishop": 320,
+    "rook": 490,
+    "queen": 880,
+    "king": 0
+  },
+  "mobility_weight": 8.0,
+  "pawn_structure_bonus": {
+    "passed_pawn": 40,
+    "doubled_pawn": -15,
+    "isolated_pawn": -10,
+    "backward_pawn": -8,
+    "connected_pawns": 3
+  },
+  "king_safety_penalty": {
+    "open_file_near_king": -20,
+    "weak_pawn_shield": -15,
+    "king_in_center": -30,
+    "enemy_pieces_near_king": -10
+  },
+  "search_depth": 3
+}

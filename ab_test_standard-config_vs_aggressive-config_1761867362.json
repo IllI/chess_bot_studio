@@ -1,0 +1,126 @@
+{
+  "suite_id": "ab_test_standard-config_vs_aggressive-config_1761867362",
+  "bot1_id": "standard-config",
+  "bot2_id": "aggressive-config",
+  "description": "Standard vs Aggressive A/B test",
+  "num_games": 6,
+  "time_control": {
+    "limit": 180,
+    "increment": 2
+  },
+  "matches": [
+    {
+      "match_id": "ab_test_standard-config_vs_aggressive-config_1761867362_match_1",
+      "bot1_id": "standard-config",
+      "bot2_id": "aggressive-config",
+      "game_id": null,
+      "status": "pending",
+      "result": null,
+      "started_at": null,
+      "completed_at": null,
+      "time_control": {
+        "limit": 180,
+        "increment": 2
+      },
+      "metadata": {
+        "game_number": 1,
+        "challenger": "standard-config"
+      }
+    },
+    {
+      "match_id": "ab_test_standard-config_vs_aggressive-config_1761867362_match_2",
+      "bot1_id": "standard-config",
+      "bot2_id": "aggressive-config",
+      "game_id": null,
+      "status": "pending",
+      "result": null,
+      "started_at": null,
+      "completed_at": null,
+      "time_control": {
+        "limit": 180,
+        "increment": 2
+      },
+      "metadata": {
+        "game_number": 2,
+        "challenger": "aggressive-config"
+      }
+    },
+    {
+      "match_id": "ab_test_standard-config_vs_aggressive-config_1761867362_match_3",
+      "bot1_id": "standard-config",
+      "bot2_id": "aggressive-config",
+      "game_id": null,
+      "status": "pending",
+      "result": null,
+      "started_at": null,
+      "completed_at": null,
+      "time_control": {
+        "limit": 180,
+        "increment": 2
+      },
+      "metadata": {
+        "game_number": 3,
+        "challenger": "standard-config"
+      }
+    },
+    {
+      "match_id": "ab_test_standard-config_vs_aggressive-config_1761867362_match_4",
+      "bot1_id": "standard-config",
+      "bot2_id": "aggressive-config",
+      "game_id": null,
+      "status": "pending",
+      "result": null,
+      "started_at": null,
+      "completed_at": null,
+      "time_control": {
+        "limit": 180,
+        "increment": 2
+      },
+      "metadata": {
+        "game_number": 4,
+        "challenger": "aggressive-config"
+      }
+    },
+    {
+      "match_id": "ab_test_standard-config_vs_aggressive-config_1761867362_match_5",
+      "bot1_id": "standard-config",
+      "bot2_id": "aggressive-config",
+      "game_id": null,
+      "status": "pending",
+      "result": null,
+      "started_at": null,
+      "completed_at": null,
+      "time_control": {
+        "limit": 180,
+        "increment": 2
+      },
+      "metadata": {
+        "game_number": 5,
+        "challenger": "standard-config"
+      }
+    },
+    {
+      "match_id": "ab_test_standard-config_vs_aggressive-config_1761867362_match_6",
+      "bot1_id": "standard-config",
+      "bot2_id": "aggressive-config",
+      "game_id": null,
+      "status": "pending",
+      "result": null,
+      "started_at": null,
+      "completed_at": null,
+      "time_control": {
+        "limit": 180,
+        "increment": 2
+      },
+      "metadata": {
+        "game_number": 6,
+        "challenger": "aggressive-config"
+      }
+    }
+  ],
+  "status": "created",
+  "created_at": "2025-10-30T18:36:02.225312",
+  "started_at": null,
+  "completed_at": null,
+  "results_summary": null
+}

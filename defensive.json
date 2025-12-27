@@ -1,0 +1,30 @@
+{
+  "config": {
+    "piece_values": {
+      "pawn": 110,
+      "knight": 310,
+      "bishop": 320,
+      "rook": 490,
+      "queen": 880,
+      "king": 0
+    },
+    "mobility_weight": 8.0,
+    "pawn_structure_bonus": {
+      "passed_pawn": 40,
+      "doubled_pawn": -25,
+      "isolated_pawn": -20,
+      "backward_pawn": -12,
+      "connected_pawns": 3
+    },
+    "king_safety_penalty": {
+      "open_file_near_king": -40,
+      "weak_pawn_shield": -30,
+      "king_in_center": -50,
+      "enemy_pieces_near_king": -20
+    },
+    "search_depth": 4
+  },
+  "config_id": "defensive",
+  "exported_at": "2024-01-01T12:00:00",
+  "description": "Defensive playing style emphasizing king safety and pawn structure"
+}

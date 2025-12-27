@@ -1,0 +1,5 @@
+{
+  "name": "ChessMaster AI Tutor",
+  "description": "An interactive instructional application that teaches the fundamentals of Artificial Intelligence through the lens of training a chess bot, featuring real-time engine evaluation and Gemini-powered explanations.",
+  "requestFramePermissions": []
+}

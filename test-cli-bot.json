@@ -1,0 +1,104 @@
+{
+  "bot_id": "test-cli-bot",
+  "description": "Test bot via CLI",
+  "created_at": "2025-10-30T18:34:48.464492",
+  "last_modified": "2025-10-30T18:34:48.464492",
+  "config": {
+    "piece_values": {
+      "pawn": 110,
+      "knight": 330,
+      "bishop": 340,
+      "rook": 510,
+      "queen": 920,
+      "king": 0
+    },
+    "mobility_weight": 15.0,
+    "pawn_structure_bonus": {
+      "passed_pawn": 60,
+      "doubled_pawn": -25,
+      "isolated_pawn": -20,
+      "backward_pawn": -15,
+      "connected_pawns": 8
+    },
+    "king_safety_penalty": {
+      "open_file_near_king": -40,
+      "weak_pawn_shield": -30,
+      "king_in_center": -50,
+      "enemy_pieces_near_king": -20
+    },
+    "search_depth": 5
+  },
+  "change_history": [
+    {
+      "timestamp": "2025-10-30T18:34:48.464492",
+      "parameter": "piece_values",
+      "old_value": {
+        "pawn": 100,
+        "knight": 320,
+        "bishop": 330,
+        "rook": 500,
+        "queen": 900,
+        "king": 0
+      },
+      "new_value": {
+        "pawn": 110,
+        "knight": 330,
+        "bishop": 340,
+        "rook": 510,
+        "queen": 920,
+        "king": 0
+      },
+      "config_id": "test-cli-bot"
+    },
+    {
+      "timestamp": "2025-10-30T18:34:48.464492",
+      "parameter": "mobility_weight",
+      "old_value": 10.0,
+      "new_value": 15.0,
+      "config_id": "test-cli-bot"
+    },
+    {
+      "timestamp": "2025-10-30T18:34:48.464492",
+      "parameter": "pawn_structure_bonus",
+      "old_value": {
+        "passed_pawn": 50,
+        "doubled_pawn": -20,
+        "isolated_pawn": -15,
+        "backward_pawn": -10,
+        "connected_pawns": 5
+      },
+      "new_value": {
+        "passed_pawn": 60,
+        "doubled_pawn": -25,
+        "isolated_pawn": -20,
+        "backward_pawn": -15,
+        "connected_pawns": 8
+      },
+      "config_id": "test-cli-bot"
+    },
+    {
+      "timestamp": "2025-10-30T18:34:48.464492",
+      "parameter": "king_safety_penalty",
+      "old_value": {
+        "open_file_near_king": -30,
+        "weak_pawn_shield": -20,
+        "king_in_center": -40,
+        "enemy_pieces_near_king": -15
+      },
+      "new_value": {
+        "open_file_near_king": -40,
+        "weak_pawn_shield": -30,
+        "king_in_center": -50,
+        "enemy_pieces_near_king": -20
+      },
+      "config_id": "test-cli-bot"
+    },
+    {
+      "timestamp": "2025-10-30T18:34:48.464492",
+      "parameter": "search_depth",
+      "old_value": 4,
+      "new_value": 5,
+      "config_id": "test-cli-bot"
+    }
+  ]
+}

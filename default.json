@@ -1,0 +1,30 @@
+{
+  "config": {
+    "piece_values": {
+      "pawn": 100,
+      "knight": 320,
+      "bishop": 330,
+      "rook": 500,
+      "queen": 900,
+      "king": 0
+    },
+    "mobility_weight": 10.0,
+    "pawn_structure_bonus": {
+      "passed_pawn": 50,
+      "doubled_pawn": -20,
+      "isolated_pawn": -15,
+      "backward_pawn": -10,
+      "connected_pawns": 5
+    },
+    "king_safety_penalty": {
+      "open_file_near_king": -30,
+      "weak_pawn_shield": -20,
+      "king_in_center": -40,
+      "enemy_pieces_near_king": -15
+    },
+    "search_depth": 4
+  },
+  "config_id": "default",
+  "exported_at": "2024-01-01T12:00:00",
+  "description": "Default balanced configuration for chess engine"
+}

@@ -1,0 +1,30 @@
+{
+  "config": {
+    "piece_values": {
+      "pawn": 90,
+      "knight": 340,
+      "bishop": 350,
+      "rook": 520,
+      "queen": 950,
+      "king": 0
+    },
+    "mobility_weight": 15.0,
+    "pawn_structure_bonus": {
+      "passed_pawn": 60,
+      "doubled_pawn": -15,
+      "isolated_pawn": -10,
+      "backward_pawn": -8,
+      "connected_pawns": 8
+    },
+    "king_safety_penalty": {
+      "open_file_near_king": -25,
+      "weak_pawn_shield": -15,
+      "king_in_center": -30,
+      "enemy_pieces_near_king": -10
+    },
+    "search_depth": 5
+  },
+  "config_id": "aggressive",
+  "exported_at": "2024-01-01T12:00:00",
+  "description": "Aggressive playing style with higher mobility weight and deeper search"
+}

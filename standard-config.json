@@ -1,0 +1,68 @@
+{
+  "bot_id": "standard-config",
+  "description": "Standard chess configuration",
+  "created_at": "2025-10-30T18:36:02.209216",
+  "last_modified": "2025-10-30T18:36:02.209216",
+  "config": {
+    "piece_values": {
+      "pawn": 100,
+      "knight": 320,
+      "bishop": 330,
+      "rook": 500,
+      "queen": 900,
+      "king": 0
+    },
+    "mobility_weight": 10.0,
+    "pawn_structure_bonus": {
+      "passed_pawn": 50,
+      "doubled_pawn": -20,
+      "isolated_pawn": -15,
+      "backward_pawn": -10,
+      "connected_pawns": 5
+    },
+    "king_safety_penalty": {
+      "open_file_near_king": -30,
+      "weak_pawn_shield": -20,
+      "king_in_center": -40,
+      "enemy_pieces_near_king": -15
+    },
+    "search_depth": 4
+  },
+  "change_history": [
+    {
+      "timestamp": "2025-10-30T18:36:02.209216",
+      "parameter": "piece_values",
+      "old_value": {
+        "pawn": 100,
+        "knight": 320,
+        "bishop": 330,
+        "rook": 500,
+        "queen": 900,
+        "king": 0
+      },
+      "new_value": {
+        "pawn": 100,
+        "knight": 320,
+        "bishop": 330,
+        "rook": 500,
+        "queen": 900,
+        "king": 0
+      },
+      "config_id": "standard-config"
+    },
+    {
+      "timestamp": "2025-10-30T18:36:02.209216",
+      "parameter": "mobility_weight",
+      "old_value": 10.0,
+      "new_value": 10.0,
+      "config_id": "standard-config"
+    },
+    {
+      "timestamp": "2025-10-30T18:36:02.209216",
+      "parameter": "search_depth",
+      "old_value": 4,
+      "new_value": 4,
+      "config_id": "standard-config"
+    }
+  ]
+}
