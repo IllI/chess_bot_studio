@@ -39,28 +39,28 @@ DEFAULT_CONFIG = {
 # Configuration bounds for parameter validation
 PARAMETER_BOUNDS = {
     'piece_values': {
-        'pawn': (50, 200),
-        'knight': (200, 500),
-        'bishop': (200, 500),
-        'rook': (300, 800),
-        'queen': (600, 1200),
-        'king': (0, 0)
+        'pawn': (0, 1000),
+        'knight': (0, 2000),
+        'bishop': (0, 2000),
+        'rook': (0, 2000),
+        'queen': (0, 3000),
+        'king': (0, 10000)
     },
-    'mobility_weight': (0.0, 50.0),
+    'mobility_weight': (0.0, 200.0),
     'pawn_structure_bonus': {
-        'passed_pawn': (0, 100),
-        'doubled_pawn': (-50, 0),
-        'isolated_pawn': (-50, 0),
-        'backward_pawn': (-50, 0),
-        'connected_pawns': (0, 20)
+        'passed_pawn': (0, 500),
+        'doubled_pawn': (-500, 0),
+        'isolated_pawn': (-500, 0),
+        'backward_pawn': (-500, 0),
+        'connected_pawns': (0, 100)
     },
     'king_safety_penalty': {
-        'open_file_near_king': (-100, 0),
-        'weak_pawn_shield': (-100, 0),
-        'king_in_center': (-100, 0),
-        'enemy_pieces_near_king': (-50, 0)
+        'open_file_near_king': (-2000, 0),
+        'weak_pawn_shield': (-2000, 0),
+        'king_in_center': (-2000, 0),
+        'enemy_pieces_near_king': (-2000, 0)
     },
-    'search_depth': (1, 8)
+    'search_depth': (1, 20)
 }
 
 

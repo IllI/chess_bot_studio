@@ -11,8 +11,8 @@ import time
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime
 from copy import deepcopy
-from .config import ChessConfig, DEFAULT_CONFIG
-from .custom_lichess_bot import LichessBotClient
+from config import ChessConfig, DEFAULT_CONFIG
+from custom_lichess_bot import LichessBotClient
 
 
 class BotInstanceManager:
@@ -158,6 +158,12 @@ class BotInstanceManager:
                     return False
                 
                 self.logger.info(f"Updated configuration for bot {bot_id}")
+                
+                # Automatically restart bot if active to apply new configuration
+                if bot_id in self.active_bots:
+                    self.logger.info(f"Restarting active bot {bot_id} to apply new configuration...")
+                    self.restart_bot(bot_id)
+                    
                 return True
                 
         except Exception as e:
@@ -281,6 +287,39 @@ class BotInstanceManager:
             self.logger.error(f"Error stopping bot {bot_id}: {e}")
             return False
     
+    def restart_bot(self, bot_id: str) -> bool:
+        """
+        Restart an active bot instance.
+        
+        Args:
+            bot_id: Bot instance identifier
+            
+        Returns:
+            True if restart successful, False otherwise
+        """
+        try:
+            if bot_id not in self.active_bots:
+                self.logger.warning(f"Cannot restart bot {bot_id}: not active")
+                return False
+                
+            # Retrieve token before stopping
+            token = self.active_bots[bot_id].token
+            
+            self.logger.info(f"Stopping bot {bot_id} for restart...")
+            if not self.stop_bot(bot_id):
+                self.logger.error(f"Failed to stop bot {bot_id} during restart")
+                return False
+                
+            # Allow brief cooldown for threaded resources to release
+            time.sleep(1)
+            
+            self.logger.info(f"Starting bot {bot_id}...")
+            return self.start_bot(bot_id, token)
+            
+        except Exception as e:
+            self.logger.error(f"Error restarting bot {bot_id}: {e}")
+            return False
+
     def get_active_bots(self) -> Dict[str, Dict[str, Any]]:
         """
         Get information about currently active bots.

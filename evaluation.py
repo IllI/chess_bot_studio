@@ -11,7 +11,7 @@ from typing import Dict, Any
 
 # Handle imports for both module and standalone execution
 try:
-    from .config import PIECE_VALUES, MOBILITY_WEIGHT, PAWN_STRUCTURE_BONUS, KING_SAFETY_PENALTY
+    from config import PIECE_VALUES, MOBILITY_WEIGHT, PAWN_STRUCTURE_BONUS, KING_SAFETY_PENALTY
 except ImportError:
     from config import PIECE_VALUES, MOBILITY_WEIGHT, PAWN_STRUCTURE_BONUS, KING_SAFETY_PENALTY
 

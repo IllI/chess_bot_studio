@@ -12,12 +12,8 @@ from typing import Dict, Any, Optional, Tuple, List
 from dataclasses import dataclass
 
 # Handle imports for both module and standalone execution
-try:
-    from .evaluation import evaluate_board
-    from .config import ChessConfig
-except ImportError:
-    from evaluation import evaluate_board
-    from config import ChessConfig
+from evaluation import evaluate_board
+from config import ChessConfig, SEARCH_DEPTH, PIECE_VALUES
 
 # Set up logging for search decisions
 logger = logging.getLogger(__name__)
@@ -171,7 +167,7 @@ class ChessSearchEngine:
         # Log search statistics if game_id is provided
         if game_id:
             try:
-                from .analytics import log_search_statistics
+                from analytics import log_search_statistics
                 log_search_statistics(game_id, board.fen(), self.get_search_stats())
             except ImportError:
                 pass  # Analytics module not available
@@ -291,7 +287,7 @@ class ChessSearchEngine:
         # Log search statistics if game_id is provided
         if game_id:
             try:
-                from .analytics import log_search_statistics
+                from analytics import log_search_statistics
                 log_search_statistics(game_id, board.fen(), self.get_search_stats())
             except ImportError:
                 pass  # Analytics module not available

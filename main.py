@@ -3,10 +3,10 @@
 
 import argparse
 import sys
-from .analysis import setup_logging
-from .custom_lichess_bot import LichessBotClient
-from .multi_bot_cli import main as multi_bot_main
-from .wizard import run_wizard
+from analysis import setup_logging
+from custom_lichess_bot import LichessBotClient
+from multi_bot_cli import main as multi_bot_main
+from wizard import run_wizard
 
 
 def main():

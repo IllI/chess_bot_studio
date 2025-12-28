@@ -3,8 +3,8 @@ import sys
 import json
 import logging
 from typing import Dict, Any, Optional
-from .multi_bot_manager import get_bot_manager
-from .ab_testing import get_ab_test_manager
+from multi_bot_manager import get_bot_manager
+from ab_testing import get_ab_test_manager
 
 class MultiBotCLI:
     """CLI for managing multiple bot instances and A/B testing."""

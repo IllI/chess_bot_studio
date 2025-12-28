@@ -1,6 +1,7 @@
 {
   "lichess_token": "lip_3eTzklkaCnDYoS9KW3dQ",
   "preferred_bot_id": "aggressive_v1",
+  "strategy": "aggressive",
   "ui_port": 8000,
   "api_port": 5050
 }

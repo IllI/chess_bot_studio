@@ -1,11 +1,4 @@
-"""Interactive wizard launcher for Chess Bot Studio.
-
-Run with:
-
-    python main.py --mode wizard
-
-from inside the chess_bot_studio folder.
-"""
+"""Interactive wizard launcher for Chess Bot Studio."""
 
 import json
 import subprocess
@@ -17,9 +10,9 @@ from http.server import HTTPServer
 from pathlib import Path
 from typing import Optional
 
-from .analysis import setup_logging
-from .config_api_server import ConfigAPIRequestHandler
-from .multi_bot_manager import get_bot_manager
+from analysis import setup_logging
+from config_api_server import ConfigAPIRequestHandler
+from multi_bot_manager import get_bot_manager
 
 
 PROJECT_ROOT = Path(__file__).resolve().parent
@@ -30,6 +23,7 @@ USER_PROFILE_PATH = PROJECT_ROOT / "configs" / "user_profile.json"
 class UserProfile:
     lichess_token: Optional[str] = None
     preferred_bot_id: str = "aggressive_v1"
+    strategy: str = "aggressive"
     ui_port: int = 8000
     api_port: int = 5050
 
@@ -51,22 +45,12 @@ def _save_user_profile(profile: UserProfile) -> None:
         json.dump(asdict(profile), f, indent=2)
 
 
-def _ensure_lichess_token(profile: UserProfile) -> UserProfile:
-    if profile.lichess_token:
-        return profile
-
-    print("\n=== Step 1: Lichess Bot Token ===")
-    print("A Lichess API token is required for the bot to play games.")
-    print("Create one at: https://lichess.org/account/oauth/token (bot scope)")
-    token = input("Paste your Lichess bot API token here (or leave blank to skip for now): ").strip()
-
-    if token:
-        profile.lichess_token = token
-        _save_user_profile(profile)
-        print("Saved Lichess token to local user profile.\n")
-    else:
-        print("No token provided. You can still use the UI for offline tuning, but the bot will not connect to Lichess.\n")
-
+def _ensure_user_profile(profile: UserProfile) -> UserProfile:
+    # Just save defaults if they don't exist, don't prompt in console
+    if not profile.preferred_bot_id:
+        profile.preferred_bot_id = "aggressive_v1"
+    
+    _save_user_profile(profile)
     return profile
 
 
@@ -92,27 +76,51 @@ def _start_ui_server(port: int) -> subprocess.Popen:
 
 
 def _start_preferred_bot(profile: UserProfile) -> None:
+    manager = get_bot_manager()
+    bot_id = profile.preferred_bot_id
+    
+    # Ensure bot exists with selected strategy
+    existing = manager.get_bot_instance(bot_id)
+    if not existing:
+        print(f"[Wizard] Creating new bot '{bot_id}' with {profile.strategy} strategy...")
+        
+        # Define templates
+        aggressive_config = {
+            'piece_values': {'pawn': 100, 'knight': 320, 'bishop': 330, 'rook': 500, 'queen': 900, 'king': 0},
+            'mobility_weight': 10.0,
+            'search_depth': 4
+        }
+        defensive_config = {
+            'piece_values': {'pawn': 100, 'knight': 310, 'bishop': 320, 'rook': 520, 'queen': 900, 'king': 0},
+            'mobility_weight': 5.0,
+            'search_depth': 4,
+            'king_safety_penalty': {'open_file_near_king': -40, 'weak_pawn_shield': -30, 'king_in_center': -50, 'enemy_pieces_near_king': -20}
+        }
+        
+        config = defensive_config if profile.strategy == "defensive" else aggressive_config
+        success = manager.create_bot_instance(bot_id, config, f"{profile.strategy.capitalize()} Bot created via Wizard")
+        if not success:
+            print(f"[Wizard] Failed to create bot {bot_id}. Exiting.")
+            return
+
     if not profile.lichess_token:
         print("[Wizard] No Lichess token stored; skipping bot startup.")
         return
 
-    manager = get_bot_manager()
-    bot_id = profile.preferred_bot_id
-
-    print(f"[Wizard] Starting bot instance '{bot_id}' with stored token...")
+    print(f"[Wizard] Starting bot instance '{bot_id}'...")
     success = manager.start_bot(bot_id, profile.lichess_token)
 
     if success:
         print(f"[Wizard] Bot '{bot_id}' started. It will join games on Lichess when challenged.")
     else:
-        print(f"[Wizard] Failed to start bot '{bot_id}'. Check its config in configs/bots/{bot_id}.json.")
+        print(f"[Wizard] Failed to start bot '{bot_id}'. Check logs/multi_bot_manager.log.")
 
 
 def run_wizard() -> None:
     print("\n=== Chess Bot Studio Wizard ===")
 
     profile = _load_user_profile()
-    profile = _ensure_lichess_token(profile)
+    profile = _ensure_user_profile(profile)
 
     print("=== Step 2: Starting Services ===")
     api_server = _start_config_api_server(profile.api_port)
@@ -141,3 +149,7 @@ def run_wizard() -> None:
         except Exception:
             pass
         print("[Wizard] All services stopped. Goodbye.")
+
+
+if __name__ == "__main__":
+    run_wizard()

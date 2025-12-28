@@ -12,8 +12,9 @@ import statistics
 from typing import Dict, Any, Optional, List, Tuple
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
-from .multi_bot_manager import BotInstanceManager, get_bot_manager
-from .analytics import GameLogger
+from config import ChessConfig
+from multi_bot_manager import get_bot_manager, BotInstance, BotInstanceManager
+from custom_lichess_bot import LichessBotClient
 
 
 @dataclass

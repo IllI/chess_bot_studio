@@ -12,6 +12,55 @@ interface TuningLabProps {
 const TuningLab: React.FC<TuningLabProps> = ({ config, setConfig }) => {
   const [aiReport, setAiReport] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [activeBotId, setActiveBotId] = useState<string>("aggressive_v1"); // Default fallback
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
+
+  // Auto-discover active bot on mount and fetch its config
+  React.useEffect(() => {
+    fetch('http://localhost:5050/api/active-bots')
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.active_bots && data.active_bots.length > 0) {
+          const botId = data.active_bots[0];
+          setActiveBotId(botId);
+
+          // Fetch config for this bot
+          fetch(`http://localhost:5050/api/get-config/${botId}`)
+            .then(res => res.json())
+            .then(configData => {
+              if (configData.ok && configData.config) {
+                // Update parent config state
+                setConfig({
+                  name: botId,
+                  ...configData.config
+                });
+              }
+            })
+            .catch(console.error);
+        }
+      })
+      .catch(console.error);
+  }, [setConfig]);
+
+  const saveConfig = async () => {
+    setSaveStatus("Saving...");
+    try {
+      const response = await fetch(`http://localhost:5050/api/save-config/${activeBotId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ config })
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setSaveStatus("Saved & Bot Restarted Successfully!");
+        setTimeout(() => setSaveStatus(null), 3000);
+      } else {
+        setSaveStatus(`Save failed: ${data.error}`);
+      }
+    } catch (e) {
+      setSaveStatus(`Connection error: ${e}`);
+    }
+  };
 
   const updateWeight = (category: keyof BotConfig, key: string | null, value: number) => {
     const next = { ...config };
@@ -48,14 +97,14 @@ const TuningLab: React.FC<TuningLabProps> = ({ config, setConfig }) => {
       <div className="lg:col-span-8 space-y-6">
         <div className="glass rounded-[40px] p-10 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/5 blur-[120px] pointer-events-none" />
-          
+
           <div className="flex items-center justify-between mb-12">
             <div className="space-y-1">
               <h2 className="text-3xl font-black">Heuristic Calibration</h2>
               <p className="text-slate-500 font-medium">Define the mathematical worth of every position.</p>
             </div>
             <div className="hidden md:block glass px-4 py-2 rounded-2xl border-indigo-500/20">
-               <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-400">V1.4 Stable</span>
+              <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-indigo-400">V1.4 Stable</span>
             </div>
           </div>
 
@@ -65,7 +114,7 @@ const TuningLab: React.FC<TuningLabProps> = ({ config, setConfig }) => {
                 <Target className="text-indigo-400" size={18} />
                 <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Static Piece Values</h3>
               </div>
-              
+
               <div className="space-y-8">
                 {Object.entries(config.piece_values).map(([piece, val]) => (
                   <div key={piece} className="space-y-3">
@@ -117,7 +166,7 @@ const TuningLab: React.FC<TuningLabProps> = ({ config, setConfig }) => {
                 </div>
 
                 <div className="p-6 bg-slate-900/50 rounded-3xl border border-white/5 mt-8">
-                   <div className="flex justify-between text-sm font-bold text-slate-300 mb-4">
+                  <div className="flex justify-between text-sm font-bold text-slate-300 mb-4">
                     <span className="flex items-center gap-2">Search Depth <Zap size={12} className="text-yellow-400" /></span>
                     <span className="mono text-indigo-400">{config.search_depth} Layers</span>
                   </div>
@@ -142,7 +191,7 @@ const TuningLab: React.FC<TuningLabProps> = ({ config, setConfig }) => {
             <Sparkles className="text-indigo-400" size={20} />
             <h3 className="font-bold text-xl">Architect Insight</h3>
           </div>
-          
+
           <p className="text-sm text-slate-400 leading-relaxed mb-8">
             The architect uses LLM reasoning to predict how your mathematical weights will manifest in actual chess tactics.
           </p>
@@ -154,6 +203,19 @@ const TuningLab: React.FC<TuningLabProps> = ({ config, setConfig }) => {
           >
             {isAnalyzing ? <RefreshCcw className="animate-spin" size={18} /> : <>Generate Report <ChevronRight size={18} /></>}
           </button>
+
+          <button
+            onClick={saveConfig}
+            className="w-full mt-4 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 shadow-xl shadow-emerald-600/20"
+          >
+            Save to Model ({activeBotId})
+          </button>
+
+          {saveStatus && (
+            <p className={`text-xs mt-2 text-center font-bold ${saveStatus.includes('failed') ? 'text-red-400' : 'text-emerald-400'}`}>
+              {saveStatus}
+            </p>
+          )}
 
           <AnimatePresence>
             {aiReport && (

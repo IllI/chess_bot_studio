@@ -140,6 +140,32 @@
           const [isAnalyzing, setIsAnalyzing] = useState(false);
           const [isSaving, setIsSaving] = useState(false);
           const [saveMessage, setSaveMessage] = useState(null);
+          const [activeBotId, setActiveBotId] = useState("aggressive_v1");
+
+          // Fetch saved config on mount
+          useEffect(() => {
+            fetch('http://localhost:5050/api/active-bots')
+              .then(res => res.json())
+              .then(data => {
+                if (data.ok && data.active_bots && data.active_bots.length > 0) {
+                  const botId = data.active_bots[0];
+                  setActiveBotId(botId);
+                  
+                  // Fetch config for this bot
+                  return fetch(`http://localhost:5050/api/get-config/${botId}`)
+                    .then(res => res.json())
+                    .then(configData => {
+                      if (configData.ok && configData.config) {
+                        setConfig({
+                          name: botId,
+                          ...configData.config
+                        });
+                      }
+                    });
+                }
+              })
+              .catch(err => console.warn('Could not fetch bot config:', err));
+          }, []);
 
           const updateWeight = (category, key, value) => {
             const next = { ...config };
@@ -173,7 +199,7 @@
             setIsSaving(true);
             setSaveMessage(null);
             try {
-              const response = await fetch('http://localhost:5050/api/save-config/aggressive_v1', {
+              const response = await fetch(`http://localhost:5050/api/save-config/${activeBotId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ config })
@@ -187,7 +213,7 @@
                 return;
               }
 
-              setSaveMessage('Saved to aggressive_v1 bot configuration. Restart the bot process to use these values in live games.');
+              setSaveMessage(`Saved & Bot Restarted! Configuration applied to ${activeBotId}.`);
             } catch (e) {
               setSaveMessage('Save failed: backend API not reachable. Is config_api_server running on port 5050?');
             } finally {

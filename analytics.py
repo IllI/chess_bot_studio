@@ -16,10 +16,7 @@ from pathlib import Path
 import chess
 
 # Handle imports for both module and standalone execution
-try:
-    from .config import ChessConfig
-except ImportError:
-    from config import ChessConfig
+from config import ChessConfig
 
 
 @dataclass

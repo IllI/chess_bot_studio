@@ -13,9 +13,10 @@ from queue import Queue, Empty
 from typing import Dict, Any, Optional, Callable
 import chess
 from dotenv import load_dotenv
-from .search import find_best_move
-from .evaluation import get_evaluation_breakdown
-from .analytics import GameLogger
+from config import ChessConfig, DEFAULT_CONFIG, PIECE_VALUES, MOBILITY_WEIGHT, PAWN_STRUCTURE_BONUS, KING_SAFETY_PENALTY, SEARCH_DEPTH, get_current_config
+from search import ChessSearchEngine
+from evaluation import get_evaluation_breakdown
+from analytics import GameLogger
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -145,6 +146,12 @@ class LichessBotClient:
             self.game_logger = GameLogger()
         else:
             self.game_logger = None
+
+        # Component Initialization
+        # We initialize the search engine heavily in connect() or lazily 
+        # because 'self.config' might be injected after __init__ but before connect.
+        self.config = None 
+        self.search_engine = None
     
     def connect(self) -> bool:
         """
@@ -637,12 +644,18 @@ class LichessBotClient:
             
             logger.info(f"Calculating best move for game {game_id}...")
             
+            # Initialize search engine with current config if not already done
+            if not self.search_engine:
+                # If config was injected, utilize it. Otherwise create default.
+                self.search_engine = ChessSearchEngine(self.config if hasattr(self, 'config') else None)
+                logger.info(f"Initialized search engine with config: {self.config.config_id if self.config else 'Default'}")
+
             # Get time control information for move timing
             time_limit = self._get_move_time_limit(game_id)
             
             # Use the chess engine to find the best move
             try:
-                best_move = find_best_move(board, depth=4, time_limit=time_limit, game_id=game_id)
+                best_move = self.search_engine.find_best_move(board, depth=None, time_limit=time_limit, game_id=game_id)
                 
                 if best_move and best_move in board.legal_moves:
                     logger.info(f"Engine selected move: {best_move.uci()}")
