@@ -1,0 +1,104 @@
+{
+  "games": [
+    {
+      "game_id": "4XWzsNod",
+      "outcome": "draw",
+      "our_color": "black",
+      "opponent_rating": 1500,
+      "config_snapshot": {
+        "piece_values": {
+          "pawn": 100,
+          "knight": 320,
+          "bishop": 369,
+          "rook": 504,
+          "queen": 637,
+          "king": 0
+        },
+        "mobility_weight": 4.2,
+        "pawn_structure_bonus": {
+          "passed_pawn": 50,
+          "doubled_pawn": -20,
+          "isolated_pawn": -15,
+          "backward_pawn": -10,
+          "connected_pawns": 5
+        },
+        "king_safety_penalty": {
+          "open_file_near_king": -30,
+          "weak_pawn_shield": -20,
+          "king_in_center": -40,
+          "enemy_pieces_near_king": -15
+        },
+        "search_depth": 4
+      },
+      "timestamp": "2025-12-29T21:35:20.175225",
+      "move_count": 30
+    },
+    {
+      "game_id": "Tna1hPCw",
+      "outcome": "win",
+      "our_color": "black",
+      "opponent_rating": 1500,
+      "config_snapshot": {
+        "piece_values": {
+          "pawn": 100,
+          "knight": 320,
+          "bishop": 369,
+          "rook": 504,
+          "queen": 637,
+          "king": 0
+        },
+        "mobility_weight": 4.2,
+        "pawn_structure_bonus": {
+          "passed_pawn": 50,
+          "doubled_pawn": -20,
+          "isolated_pawn": -15,
+          "backward_pawn": -10,
+          "connected_pawns": 5
+        },
+        "king_safety_penalty": {
+          "open_file_near_king": -30,
+          "weak_pawn_shield": -20,
+          "king_in_center": -40,
+          "enemy_pieces_near_king": -15
+        },
+        "search_depth": 4
+      },
+      "timestamp": "2025-12-29T21:41:52.402740",
+      "move_count": 30
+    },
+    {
+      "game_id": "4nXx1URN",
+      "outcome": "loss",
+      "our_color": "white",
+      "opponent_rating": 1500,
+      "config_snapshot": {
+        "piece_values": {
+          "pawn": 100,
+          "knight": 320,
+          "bishop": 369,
+          "rook": 504,
+          "queen": 637,
+          "king": 0
+        },
+        "mobility_weight": 4.2,
+        "pawn_structure_bonus": {
+          "passed_pawn": 50,
+          "doubled_pawn": -20,
+          "isolated_pawn": -15,
+          "backward_pawn": -10,
+          "connected_pawns": 5
+        },
+        "king_safety_penalty": {
+          "open_file_near_king": -30,
+          "weak_pawn_shield": -20,
+          "king_in_center": -40,
+          "enemy_pieces_near_king": -15
+        },
+        "search_depth": 4
+      },
+      "timestamp": "2025-12-29T21:46:47.993671",
+      "move_count": 24
+    }
+  ],
+  "updated_at": "2025-12-29T21:46:47.995535"
+}

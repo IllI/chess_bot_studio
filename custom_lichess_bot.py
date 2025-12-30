@@ -357,24 +357,30 @@ class LichessBotClient:
             challenger = challenge.get('challenger', {})
             challenger_rating = challenger.get('rating', 0)
             
-            # Default acceptance criteria (can be made configurable later)
-            accepted_variants = ['standard', 'blitz', 'rapid']
-            min_time_seconds = 60  # Minimum 1 minute per side
-            max_rating_diff = 500  # Accept challenges within 500 rating points
-            
-            # Check variant
-            if variant not in accepted_variants:
+            # Check variant - only accept standard chess
+            if variant != 'standard':
                 logger.info(f"Declining challenge: unsupported variant '{variant}'")
                 return False
             
-            # Check time control
-            if time_control.get('type') == 'clock':
+            # Check time control type
+            tc_type = time_control.get('type', '')
+            
+            # Accept correspondence and unlimited games
+            if tc_type in ['correspondence', 'unlimited']:
+                logger.info(f"Accepting {tc_type} challenge from {challenger.get('name', 'Unknown')}")
+                return True
+            
+            # For clock-based games, check minimum time
+            if tc_type == 'clock':
                 limit = time_control.get('limit', 0)
+                min_time_seconds = 60  # Minimum 1 minute per side
                 if limit < min_time_seconds:
                     logger.info(f"Declining challenge: time control too fast ({limit}s)")
                     return False
+                logger.info(f"Accepting timed challenge from {challenger.get('name', 'Unknown')}")
+                return True
             
-            # For now, accept all challenges that meet basic criteria
+            # Accept other types by default
             logger.info(f"Accepting challenge from {challenger.get('name', 'Unknown')}")
             return True
             
@@ -457,7 +463,24 @@ class LichessBotClient:
             status = game_state.get('status')
             moves = game_state.get('moves', '')
             
-            if status in ['mate', 'resign', 'stalemate', 'timeout', 'draw']:
+            # Always update the board with the latest moves first
+            if hasattr(self, 'active_games') and game_id in self.active_games:
+                game_info = self.active_games[game_id]
+                moves_list = moves.split() if moves else []
+                
+                # Reconstruct board with all moves
+                board = chess.Board()
+                for move_str in moves_list:
+                    try:
+                        move = chess.Move.from_uci(move_str)
+                        board.push(move)
+                    except ValueError:
+                        logger.error(f"Invalid move: {move_str}")
+                
+                game_info['board'] = board
+                game_info['move_count'] = len(moves_list)
+            
+            if status in ['mate', 'resign', 'stalemate', 'timeout', 'draw', 'outoftime', 'aborted']:
                 self._handle_game_end(game_id, status)
             else:
                 # Game is ongoing, handle move if it's our turn
@@ -602,13 +625,40 @@ class LichessBotClient:
                 game_info = self.active_games[game_id]
                 logger.info(f"Game duration: {time.time() - game_info['started_at']:.1f} seconds")
                 
+                # Determine outcome from our perspective
+                our_color = game_info['color']
+                board = game_info['board']
+                
+                # Debug logging
+                logger.info(f"Our color: {our_color}, Board turn: {'white' if board.turn == chess.WHITE else 'black'}")
+                logger.info(f"Board is_checkmate: {board.is_checkmate()}, is_game_over: {board.is_game_over()}")
+                
+                outcome = self._determine_game_outcome(status, our_color, board)
+                logger.info(f"Determined outcome: {outcome}")
+                
+                # Online learning - record game result
+                try:
+                    from online_learning import get_online_learner
+                    learner = get_online_learner()
+                    
+                    # Get opponent rating if available
+                    opponent_key = 'black' if our_color == 'white' else 'white'
+                    opponent_rating = game_info.get(opponent_key, {}).get('rating', 0)
+                    
+                    learner.record_game(
+                        game_id=game_id,
+                        outcome=outcome,
+                        our_color=our_color,
+                        opponent_rating=opponent_rating,
+                        move_count=game_info.get('move_count', 0)
+                    )
+                    logger.info(f"[OnlineLearning] Recorded {outcome} for learning")
+                except Exception as e:
+                    logger.warning(f"Error recording game for online learning: {e}")
+                
                 # Finish game logging
                 if self.game_logger:
                     try:
-                        # Determine outcome from our perspective
-                        our_color = game_info['color']
-                        outcome = self._determine_game_outcome(status, our_color, game_info['board'])
-                        
                         self.game_logger.finish_game_logging(
                             game_id=game_id,
                             outcome=outcome,
@@ -644,11 +694,57 @@ class LichessBotClient:
             
             logger.info(f"Calculating best move for game {game_id}...")
             
-            # Initialize search engine with current config if not already done
+            # Initialize search engine with best available config
             if not self.search_engine:
-                # If config was injected, utilize it. Otherwise create default.
-                self.search_engine = ChessSearchEngine(self.config if hasattr(self, 'config') else None)
-                logger.info(f"Initialized search engine with config: {self.config.config_id if self.config else 'Default'}")
+                config = None
+                
+                # Priority: 1) Online learned, 2) Lab config, 3) Trained from evolution, 4) Default
+                try:
+                    from online_learning import get_online_learner
+                    learner = get_online_learner()
+                    online_config = learner.get_config()
+                    if online_config:
+                        logger.info("Using online-learned configuration")
+                        config = ChessConfig("online_learned")
+                        for key, value in online_config.items():
+                            config.update_parameter(key, value)
+                except Exception as e:
+                    logger.warning(f"Could not load online config: {e}")
+                
+                if config is None:
+                    # Try lab config
+                    from pathlib import Path
+                    lab_config_path = Path(__file__).parent / "configs" / "lab_config.json"
+                    if lab_config_path.exists():
+                        try:
+                            with open(lab_config_path, 'r') as f:
+                                data = json.load(f)
+                            lab_config = data.get('config')
+                            if lab_config:
+                                logger.info("Using lab configuration")
+                                config = ChessConfig("lab")
+                                for key, value in lab_config.items():
+                                    config.update_parameter(key, value)
+                        except Exception as e:
+                            logger.warning(f"Could not load lab config: {e}")
+                
+                if config is None:
+                    # Try trained config from evolution
+                    from evolution import EvolutionaryOptimizer
+                    trained_config = EvolutionaryOptimizer.load_trained_config()
+                    if trained_config:
+                        logger.info("Using trained configuration from evolution")
+                        config = ChessConfig("trained")
+                        for key, value in trained_config.items():
+                            config.update_parameter(key, value)
+                
+                if config is None:
+                    logger.info("Using default configuration")
+                    config = ChessConfig("default")
+                
+                self.config = config
+                self.search_engine = ChessSearchEngine(self.config)
+                logger.info(f"Initialized search engine with config: {self.config.config_id}")
 
             # Get time control information for move timing
             time_limit = self._get_move_time_limit(game_id)
@@ -1237,23 +1333,49 @@ class LichessBotClient:
             Game outcome: 'win', 'loss', or 'draw'
         """
         try:
-            if status in ['draw', 'stalemate']:
+            # Draw statuses
+            if status in ['draw', 'stalemate', 'insufficient', 'repetition', 'fiftyMoves']:
                 return 'draw'
             
             if status == 'mate':
-                # If the game ended in checkmate, the side to move lost
-                if board.is_checkmate():
-                    losing_color = 'white' if board.turn == chess.WHITE else 'black'
-                    return 'win' if our_color != losing_color else 'loss'
+                # In checkmate, the side whose turn it is has lost
+                # board.turn tells us who was about to move (and thus got mated)
+                mated_color = 'white' if board.turn == chess.WHITE else 'black'
+                if our_color == mated_color:
+                    logger.info(f"We ({our_color}) got checkmated")
+                    return 'loss'
+                else:
+                    logger.info(f"We ({our_color}) delivered checkmate")
+                    return 'win'
             
-            # For other terminations (resign, timeout), we need to infer from context
-            # This is a simplified approach - in practice, Lichess provides winner info
-            if status in ['resign', 'timeout']:
-                # Without explicit winner information, we can't determine the outcome reliably
-                # In a full implementation, this would come from the game event data
-                return 'draw'  # Conservative fallback
+            if status == 'resign':
+                # When someone resigns, the side to move typically resigned
+                # But this isn't always reliable - Lichess should provide winner
+                # For now, assume if it's our turn, we resigned
+                resigned_color = 'white' if board.turn == chess.WHITE else 'black'
+                if our_color == resigned_color:
+                    return 'loss'
+                else:
+                    return 'win'
             
-            return 'draw'  # Default fallback
+            if status == 'timeout':
+                # Similar logic for timeout
+                timed_out_color = 'white' if board.turn == chess.WHITE else 'black'
+                if our_color == timed_out_color:
+                    return 'loss'
+                else:
+                    return 'win'
+            
+            if status == 'outoftime':
+                # Out of time - same as timeout
+                timed_out_color = 'white' if board.turn == chess.WHITE else 'black'
+                if our_color == timed_out_color:
+                    return 'loss'
+                else:
+                    return 'win'
+            
+            logger.warning(f"Unknown game status: {status}, defaulting to draw")
+            return 'draw'
             
         except Exception as e:
             logger.error(f"Error determining game outcome: {e}")

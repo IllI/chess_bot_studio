@@ -111,12 +111,13 @@ class ChessSearchEngine:
         Returns:
             chess.Move: Best move found
         """
+        import random
         legal_moves = list(board.legal_moves)
         
         # Order moves for better alpha-beta pruning
         ordered_moves = self._order_moves(board, legal_moves)
         
-        best_move = None
+        best_moves = []  # Track all moves with best score for randomization
         best_score = float('-inf') if board.turn == chess.WHITE else float('inf')
         
         # Search each legal move
@@ -143,16 +144,18 @@ class ChessSearchEngine:
             if board.turn == chess.WHITE:
                 if score > best_score:
                     best_score = score
-                    best_move = move
+                    best_moves = [move]
+                elif score == best_score:
+                    best_moves.append(move)
             else:
                 if score < best_score:
                     best_score = score
-                    best_move = move
+                    best_moves = [move]
+                elif score == best_score:
+                    best_moves.append(move)
         
-        # Ensure we have a move to return
-        if best_move is None:
-            best_move = legal_moves[0]
-            self.logger.warning("No best move found, using first legal move")
+        # Randomly select from best moves to add variety
+        best_move = random.choice(best_moves) if best_moves else legal_moves[0]
         
         # Update statistics
         self.stats.best_move = best_move
@@ -317,12 +320,12 @@ class ChessSearchEngine:
         if time_limit and (self.stats.nodes_evaluated % 100 == 0):  # Check every 100 nodes
             if (time.time() - start_time) > time_limit:
                 self.search_cancelled = True
-                return evaluate_board(board)
+                return evaluate_board(board, self.config.get_current_config())
         
         # Terminal conditions
         if depth == 0 or board.is_game_over():
             self.stats.positions_evaluated += 1
-            return evaluate_board(board)
+            return evaluate_board(board, self.config.get_current_config())
         
         legal_moves = list(board.legal_moves)
         

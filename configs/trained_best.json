@@ -1,0 +1,34 @@
+{
+  "config": {
+    "piece_values": {
+      "pawn": 131,
+      "knight": 286,
+      "bishop": 385,
+      "rook": 631,
+      "queen": 2000,
+      "king": 0
+    },
+    "mobility_weight": 3.8,
+    "pawn_structure_bonus": {
+      "passed_pawn": 50,
+      "doubled_pawn": -20,
+      "isolated_pawn": -15,
+      "backward_pawn": -10,
+      "connected_pawns": 5
+    },
+    "king_safety_penalty": {
+      "open_file_near_king": -30,
+      "weak_pawn_shield": -20,
+      "king_in_center": -40,
+      "enemy_pieces_near_king": -15
+    },
+    "search_depth": 3
+  },
+  "fitness": 47.5,
+  "win_rate": 0.625,
+  "generation": 2,
+  "games_played": 76,
+  "saved_at": "2025-12-29T23:01:22.194706",
+  "reason": "training_completed",
+  "session_id": "session_1767066455"
+}

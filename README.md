@@ -59,6 +59,33 @@ Chess Bot Studio uses an **evolutionary algorithm** to discover optimal chess en
 
 This mirrors how neural networks learn - through iterative improvement based on performance feedback.
 
+### Training Persistence
+
+When training completes (or finds a new best configuration), the weights are automatically saved to `configs/trained_best.json`. When you run the Lichess bot, it automatically loads these trained weights, so your bot immediately plays with the optimized configuration.
+
+The saved config includes:
+- All tuned parameters (piece values, mobility weight, king safety, etc.)
+- Fitness score and win rate achieved during training
+- Generation number and timestamp
+
+### Online Learning
+
+The bot learns from every Lichess game immediately after it ends. The learning rate adjusts based on win/loss streaks:
+
+- **Single win**: Small reinforcement of current config (3% adjustment)
+- **Win streak**: Stronger reinforcement (rate increases 1.5x per consecutive win, up to 15%)
+- **Single loss**: Small mutation to explore alternatives
+- **Losing streak**: Stronger mutations to escape bad configurations
+- **Draw**: Occasional small exploration
+
+This means:
+- After 3 wins in a row: Learning rate = 6.75% (strong reinforcement)
+- After 3 losses in a row: Learning rate = 6.75% (strong mutation away)
+
+Online-learned weights are saved to `configs/online_learned.json` and take priority over evolution-trained weights.
+
+Config priority: Online Learned → Evolution Trained → Default
+
 ## Other Run Modes
 
 ```bash

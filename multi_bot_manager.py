@@ -219,15 +219,18 @@ class BotInstanceManager:
         try:
             if bot_id not in self.bot_instances:
                 self.logger.error(f"Bot instance {bot_id} not found")
+                print(f"[BotManager] Bot instance {bot_id} not found")
                 return False
             
             if bot_id in self.active_bots:
                 self.logger.warning(f"Bot {bot_id} is already active")
+                print(f"[BotManager] Bot {bot_id} is already active")
                 return True
             
             bot_instance = self.bot_instances[bot_id]
             
             # Create Lichess bot client with isolated configuration
+            print(f"[BotManager] Creating Lichess client for {bot_id}...")
             lichess_bot = LichessBotClient(
                 token=lichess_token,
                 enable_logging=True
@@ -238,14 +241,17 @@ class BotInstanceManager:
             lichess_bot.config = bot_instance.config
             
             # Connect to Lichess
+            print(f"[BotManager] Connecting {bot_id} to Lichess...")
             if not lichess_bot.connect():
                 self.logger.error(f"Failed to connect bot {bot_id} to Lichess")
+                print(f"[BotManager] Failed to connect bot {bot_id} to Lichess")
                 return False
             
             # Store active bot
             self.active_bots[bot_id] = lichess_bot
             
             # Start bot in separate thread
+            print(f"[BotManager] Starting event loop thread for {bot_id}...")
             bot_thread = threading.Thread(
                 target=self._run_bot_main_loop,
                 args=(bot_id, lichess_bot),
@@ -254,10 +260,14 @@ class BotInstanceManager:
             bot_thread.start()
             
             self.logger.info(f"Started bot instance: {bot_id}")
+            print(f"[BotManager] Bot {bot_id} started successfully")
             return True
             
         except Exception as e:
             self.logger.error(f"Error starting bot {bot_id}: {e}")
+            print(f"[BotManager] Error starting bot {bot_id}: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def stop_bot(self, bot_id: str) -> bool:
@@ -424,14 +434,19 @@ class BotInstanceManager:
         """
         try:
             self.logger.info(f"Starting main loop for bot {bot_id}")
+            print(f"[BotManager] Bot {bot_id} entering main event loop...")
             lichess_bot.main_loop()
         except Exception as e:
             self.logger.error(f"Error in main loop for bot {bot_id}: {e}")
+            print(f"[BotManager] Error in main loop for bot {bot_id}: {e}")
+            import traceback
+            traceback.print_exc()
         finally:
             # Clean up on exit
             if bot_id in self.active_bots:
                 del self.active_bots[bot_id]
             self.logger.info(f"Main loop ended for bot {bot_id}")
+            print(f"[BotManager] Main loop ended for bot {bot_id}")
     
     def _get_config_hash(self, config: Dict[str, Any]) -> str:
         """

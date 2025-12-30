@@ -167,27 +167,18 @@
 
       // Fetch saved config on mount
       useEffect(() => {
-        fetch('http://localhost:5050/api/active-bots')
+        // Load lab config directly (persisted to disk)
+        fetch('http://localhost:5050/api/lab/config')
           .then(res => res.json())
           .then(data => {
-            if (data.ok && data.active_bots && data.active_bots.length > 0) {
-              const botId = data.active_bots[0];
-              setActiveBotId(botId);
-
-              // Fetch config for this bot
-              return fetch(`http://localhost:5050/api/get-config/${botId}`)
-                .then(res => res.json())
-                .then(configData => {
-                  if (configData.ok && configData.config) {
-                    setConfig({
-                      name: botId,
-                      ...configData.config
-                    });
-                  }
-                });
+            if (data.ok && data.config) {
+              setConfig({
+                name: 'lab_config',
+                ...data.config
+              });
             }
           })
-          .catch(err => console.warn('Could not fetch bot config:', err));
+          .catch(err => console.warn('Could not fetch lab config:', err));
       }, []);
 
       const updateWeight = (category, key, value) => {
@@ -222,7 +213,7 @@
         setIsSaving(true);
         setSaveMessage(null);
         try {
-          const response = await fetch(`http://localhost:5050/api/save-config/${activeBotId}`, {
+          const response = await fetch('http://localhost:5050/api/lab/config', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ config })
@@ -236,8 +227,8 @@
             return;
           }
 
-          setSaveMessage(null);
-          setShowChallengeModal(true);
+          setSaveMessage('Configuration saved!');
+          setTimeout(() => setSaveMessage(null), 3000);
         } catch (e) {
           setSaveMessage('Save failed: backend API not reachable. Is config_api_server running on port 5050?');
         } finally {
@@ -556,6 +547,7 @@
       const [gamesPerMatch, setGamesPerMatch] = useState(4);
       const [logs, setLogs] = useState([]);
       const [currentGame, setCurrentGame] = useState(null);
+      const [configApplied, setConfigApplied] = useState(false);
       const logEndRef = useRef(null);
 
       // Poll training status
@@ -570,10 +562,16 @@
                 setTrainingStatus(data);
                 if (data.session) {
                   const gen = data.session.current_generation;
+                  const gamesInGen = data.games_in_generation || 0;
+                  const totalGamesInGen = data.total_games_in_generation || 1;
                   const lastLog = logs[logs.length - 1];
-                  if (!lastLog || !lastLog.includes(`Gen ${gen}`)) {
-                    addLog(`Gen ${gen}/${data.session.max_generations} - Best fitness: ${data.session.best_fitness?.toFixed(1) || 0}`);
+                  
+                  // Show game progress within generation
+                  const progressMsg = `Gen ${gen}/${data.session.max_generations} - Games: ${gamesInGen}/${totalGamesInGen} - Best fitness: ${data.session.best_fitness?.toFixed(1) || 0}`;
+                  if (!lastLog || !lastLog.includes(progressMsg.substring(0, 20))) {
+                    addLog(progressMsg);
                   }
+                  
                   if (data.session.status === 'completed' || data.session.status === 'stopped') {
                     setIsTraining(false);
                     addLog(`Training ${data.session.status}!`);
@@ -610,9 +608,7 @@
         return () => clearInterval(gameInterval);
       }, [isTraining]);
 
-      useEffect(() => {
-        logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, [logs]);
+      // Removed auto-scroll - it was scrolling the game preview out of view
 
       const addLog = (msg) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -634,6 +630,7 @@
         setIsTraining(true);
         setIsPaused(false);
         setTrainingStatus(null);
+        setConfigApplied(false);
 
         try {
           const response = await fetch('http://localhost:5050/api/training/start', {
@@ -687,7 +684,8 @@
             ...config,
             ...trainingStatus.session.best_config
           });
-          addLog('Best configuration applied to your model!');
+          setConfigApplied(true);
+          addLog('✅ Best configuration applied to your model!');
         }
       };
 
@@ -695,6 +693,11 @@
       const currentGen = trainingStatus?.session?.current_generation || 0;
       const maxGen = trainingStatus?.session?.max_generations || generations;
       const bestFitness = trainingStatus?.session?.best_fitness || 0;
+      const gamesCompleted = trainingStatus?.games_completed || 0;
+      const totalGames = trainingStatus?.total_games || 0;
+      
+      // Calculate actual progress based on games completed
+      const actualProgress = totalGames > 0 ? Math.min(100, (gamesCompleted / totalGames) * 100) : 0;
 
       return (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -779,13 +782,14 @@
                 </div>
                 <div className="h-4 bg-slate-950 rounded-full overflow-hidden border border-white/5">
                   <div
-                    style={{ width: `${progress}%` }}
+                    style={{ width: `${actualProgress}%` }}
                     className="h-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-500"
                   />
                 </div>
                 <div className="flex justify-between text-xs text-slate-500">
                   <span>Best Fitness: <span className="text-purple-400 font-bold">{bestFitness.toFixed(1)}</span></span>
-                  <span>{progress.toFixed(0)}% complete</span>
+                  <span className="font-mono">Game {gamesCompleted}/{totalGames}</span>
+                  <span>{actualProgress.toFixed(0)}% complete</span>
                 </div>
               </div>
             </div>
@@ -918,9 +922,14 @@
                 </div>
                 <button
                   onClick={applyBestConfig}
-                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-white transition-all"
+                  disabled={configApplied}
+                  className={`w-full py-3 rounded-2xl font-bold text-white transition-all ${
+                    configApplied 
+                      ? 'bg-emerald-800 cursor-default' 
+                      : 'bg-emerald-600 hover:bg-emerald-500'
+                  }`}
                 >
-                  Apply to Your Model
+                  {configApplied ? '✓ Applied to Your Model!' : 'Apply to Your Model'}
                 </button>
               </div>
             )}

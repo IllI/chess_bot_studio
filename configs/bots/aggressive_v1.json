@@ -6,11 +6,11 @@
   "config": {
     "piece_values": {
       "pawn": 100,
-      "knight": 710,
-      "bishop": 730,
-      "rook": 720,
-      "queen": 1370,
-      "king": 1500
+      "knight": 750,
+      "bishop": 750,
+      "rook": 740,
+      "queen": 1500,
+      "king": 0
     },
     "mobility_weight": 100,
     "pawn_structure_bonus": {
@@ -483,6 +483,110 @@
     },
     {
       "timestamp": "2025-12-27T18:47:52.918024",
+      "parameter": "king_safety_penalty",
+      "old_value": {
+        "open_file_near_king": -120,
+        "weak_pawn_shield": -80,
+        "king_in_center": -160,
+        "enemy_pieces_near_king": -60
+      },
+      "new_value": {
+        "open_file_near_king": -120,
+        "weak_pawn_shield": -80,
+        "king_in_center": -160,
+        "enemy_pieces_near_king": -60
+      },
+      "config_id": "aggressive_v1"
+    },
+    {
+      "timestamp": "2025-12-29T19:30:46.907576",
+      "parameter": "piece_values",
+      "old_value": {
+        "pawn": 100,
+        "knight": 710,
+        "bishop": 730,
+        "rook": 720,
+        "queen": 1370,
+        "king": 1500
+      },
+      "new_value": {
+        "pawn": 100,
+        "knight": 820,
+        "bishop": 820,
+        "rook": 850,
+        "queen": 1500,
+        "king": 0
+      },
+      "config_id": "aggressive_v1"
+    },
+    {
+      "timestamp": "2025-12-29T19:30:46.907576",
+      "parameter": "mobility_weight",
+      "old_value": 100,
+      "new_value": 100,
+      "config_id": "aggressive_v1"
+    },
+    {
+      "timestamp": "2025-12-29T19:30:46.907576",
+      "parameter": "search_depth",
+      "old_value": 10,
+      "new_value": 10,
+      "config_id": "aggressive_v1"
+    },
+    {
+      "timestamp": "2025-12-29T19:30:46.907576",
+      "parameter": "king_safety_penalty",
+      "old_value": {
+        "open_file_near_king": -120,
+        "weak_pawn_shield": -80,
+        "king_in_center": -160,
+        "enemy_pieces_near_king": -60
+      },
+      "new_value": {
+        "open_file_near_king": -120,
+        "weak_pawn_shield": -80,
+        "king_in_center": -160,
+        "enemy_pieces_near_king": -60
+      },
+      "config_id": "aggressive_v1"
+    },
+    {
+      "timestamp": "2025-12-29T19:59:09.289337",
+      "parameter": "piece_values",
+      "old_value": {
+        "pawn": 100,
+        "knight": 820,
+        "bishop": 820,
+        "rook": 850,
+        "queen": 1500,
+        "king": 0
+      },
+      "new_value": {
+        "pawn": 100,
+        "knight": 750,
+        "bishop": 750,
+        "rook": 740,
+        "queen": 1500,
+        "king": 0
+      },
+      "config_id": "aggressive_v1"
+    },
+    {
+      "timestamp": "2025-12-29T19:59:09.289337",
+      "parameter": "mobility_weight",
+      "old_value": 100,
+      "new_value": 100,
+      "config_id": "aggressive_v1"
+    },
+    {
+      "timestamp": "2025-12-29T19:59:09.289861",
+      "parameter": "search_depth",
+      "old_value": 10,
+      "new_value": 10,
+      "config_id": "aggressive_v1"
+    },
+    {
+      "timestamp": "2025-12-29T19:59:09.289861",
       "parameter": "king_safety_penalty",
       "old_value": {
         "open_file_near_king": -120,

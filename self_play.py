@@ -59,12 +59,12 @@ class MatchResult:
 class SelfPlayEngine:
     """Engine for running self-play games between configurations."""
     
-    def __init__(self, max_moves: int = 200, time_per_move_ms: int = 100):
+    def __init__(self, max_moves: int = 80, time_per_move_ms: int = 50):
         """
         Initialize the self-play engine.
         
         Args:
-            max_moves: Maximum moves before declaring draw
+            max_moves: Maximum moves before declaring draw (reduced for faster training)
             time_per_move_ms: Time limit per move in milliseconds
         """
         self.max_moves = max_moves
@@ -77,9 +77,9 @@ class SelfPlayEngine:
     def create_engine_from_config(self, config_dict: Dict[str, Any]) -> ChessSearchEngine:
         """Create a search engine from a config dictionary."""
         chess_config = ChessConfig()
+        # Apply all config values
         for key, value in config_dict.items():
-            if hasattr(chess_config, 'update_parameter'):
-                chess_config.update_parameter(key, value)
+            chess_config.update_parameter(key, value)
         return ChessSearchEngine(chess_config)
     
     def play_game(self, 
@@ -123,9 +123,9 @@ class SelfPlayEngine:
             engine = white_engine if board.turn == chess.WHITE else black_engine
             
             try:
-                # Get best move with depth limit for speed (cap at 2 for training)
-                depth = min(white_config.get('search_depth', 2), 2)
-                move = engine.find_best_move(board, depth=depth)
+                # Get best move with depth 1 for fast training games
+                # Depth 1 is enough to differentiate configs by their evaluation
+                move = engine.find_best_move(board, depth=1)
                 
                 if move and move in board.legal_moves:
                     moves.append(move.uci())
@@ -186,6 +186,9 @@ class SelfPlayEngine:
         
         self.games_played += 1
         self.current_game = None
+        
+        # Log game completion
+        print(f"[SelfPlay] Game #{self.games_played}: {white_id} vs {black_id} = {result} ({termination}, {len(moves)} moves)")
         
         return GameResult(
             white_config_id=white_id,

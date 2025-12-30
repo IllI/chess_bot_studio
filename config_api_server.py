@@ -56,6 +56,7 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
             "/api/active-bots": self._get_active_bots,
             "/api/training/status": self._get_training_status,
             "/api/training/current-game": self._get_current_game,
+            "/api/lab/config": self._get_lab_config,
         }
         
         # DEBUG: Check if path is in routes
@@ -92,6 +93,7 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
             "/api/training/pause": self._post_training_pause,
             "/api/training/resume": self._post_training_resume,
             "/api/training/reset": self._post_training_reset,
+            "/api/lab/config": self._post_lab_config,
         }
         
         if path in routes:
@@ -149,9 +151,26 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
 
     def _get_training_status(self) -> None:
         """Return current training status."""
-        from evolution import get_optimizer
+        from evolution import get_optimizer, TRAINED_CONFIG_PATH
         optimizer = get_optimizer()
         status = optimizer.get_status()
+        
+        # Add info about saved config
+        status['trained_config_exists'] = TRAINED_CONFIG_PATH.exists()
+        if TRAINED_CONFIG_PATH.exists():
+            try:
+                import json
+                with open(TRAINED_CONFIG_PATH, 'r') as f:
+                    saved = json.load(f)
+                status['trained_config_info'] = {
+                    'saved_at': saved.get('saved_at'),
+                    'fitness': saved.get('fitness'),
+                    'win_rate': saved.get('win_rate'),
+                    'generation': saved.get('generation')
+                }
+            except:
+                pass
+        
         self._send_json({"ok": True, **status})
 
     def _get_current_game(self) -> None:
@@ -171,6 +190,44 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
             self._send_json({"ok": True, "game": game_data})
         else:
             self._send_json({"ok": True, "game": None})
+
+    def _get_lab_config(self) -> None:
+        """Return the current lab configuration (persisted to disk)."""
+        from pathlib import Path
+        
+        lab_config_path = Path(__file__).parent / "configs" / "lab_config.json"
+        
+        # Try to load saved lab config
+        if lab_config_path.exists():
+            try:
+                with open(lab_config_path, 'r') as f:
+                    data = json.load(f)
+                config = data.get('config', {})
+                
+                # Convert to UI format
+                ks_dict = config.get("king_safety_penalty", DEFAULT_CONFIG["king_safety_penalty"])
+                open_file = ks_dict.get("open_file_near_king", -30)
+                king_safety_slider = int((open_file / -30) * 20)
+                
+                response_data = {
+                    "piece_values": config.get("piece_values", DEFAULT_CONFIG["piece_values"]),
+                    "mobility_weight": config.get("mobility_weight", DEFAULT_CONFIG["mobility_weight"]),
+                    "search_depth": config.get("search_depth", DEFAULT_CONFIG["search_depth"]),
+                    "king_safety": king_safety_slider
+                }
+                self._send_json({"ok": True, "config": response_data})
+                return
+            except Exception as e:
+                print(f"[ConfigAPI] Error loading lab config: {e}")
+        
+        # Fall back to defaults
+        response_data = {
+            "piece_values": DEFAULT_CONFIG["piece_values"],
+            "mobility_weight": DEFAULT_CONFIG["mobility_weight"],
+            "search_depth": DEFAULT_CONFIG["search_depth"],
+            "king_safety": 20  # Default slider value
+        }
+        self._send_json({"ok": True, "config": response_data})
 
     # ==================== POST Handlers ====================
 
@@ -214,6 +271,69 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
         from evolution import get_optimizer
         get_optimizer().reset()
         self._send_json({"ok": True, "message": "Training reset"})
+
+    def _post_lab_config(self) -> None:
+        """Save lab configuration to disk."""
+        from pathlib import Path
+        from datetime import datetime
+        
+        body = self._read_json_body()
+        ui_config = body.get("config")
+        
+        if not isinstance(ui_config, dict):
+            self._send_json({"ok": False, "error": "Missing or invalid 'config'"}, 400)
+            return
+        
+        # Build full config from UI values
+        config: Dict[str, Any] = {}
+        
+        if "piece_values" in ui_config:
+            config["piece_values"] = {
+                **DEFAULT_CONFIG["piece_values"],
+                **(ui_config["piece_values"] or {})
+            }
+        else:
+            config["piece_values"] = DEFAULT_CONFIG["piece_values"]
+        
+        if "mobility_weight" in ui_config:
+            config["mobility_weight"] = ui_config["mobility_weight"]
+        else:
+            config["mobility_weight"] = DEFAULT_CONFIG["mobility_weight"]
+        
+        if "search_depth" in ui_config:
+            config["search_depth"] = ui_config["search_depth"]
+        else:
+            config["search_depth"] = DEFAULT_CONFIG["search_depth"]
+        
+        if "king_safety" in ui_config:
+            slider = ui_config["king_safety"]
+            try:
+                scale = max(0.25, min(4.0, float(slider) / 20.0))
+            except:
+                scale = 1.0
+            config["king_safety_penalty"] = {
+                k: int(v * scale) for k, v in DEFAULT_CONFIG["king_safety_penalty"].items()
+            }
+        else:
+            config["king_safety_penalty"] = DEFAULT_CONFIG["king_safety_penalty"]
+        
+        # Save to disk
+        lab_config_path = Path(__file__).parent / "configs" / "lab_config.json"
+        lab_config_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        save_data = {
+            "config": config,
+            "saved_at": datetime.now().isoformat(),
+            "source": "lab_ui"
+        }
+        
+        try:
+            with open(lab_config_path, 'w') as f:
+                json.dump(save_data, f, indent=2)
+            print(f"[ConfigAPI] Lab config saved to {lab_config_path}")
+            self._send_json({"ok": True, "message": "Configuration saved", "config": config})
+        except Exception as e:
+            self._send_json({"ok": False, "error": f"Failed to save: {e}"}, 500)
 
     def _post_save_config(self, bot_id: str) -> None:
         """Save configuration for a bot."""

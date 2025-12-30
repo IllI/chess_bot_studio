@@ -105,15 +105,23 @@ def _start_preferred_bot(profile: UserProfile) -> None:
 
     if not profile.lichess_token:
         print("[Wizard] No Lichess token stored; skipping bot startup.")
+        print("[Wizard] To connect to Lichess, add your token to configs/user_profile.json")
         return
 
-    print(f"[Wizard] Starting bot instance '{bot_id}'...")
-    success = manager.start_bot(bot_id, profile.lichess_token)
+    print(f"[Wizard] Starting bot instance '{bot_id}' with Lichess connection...")
+    try:
+        success = manager.start_bot(bot_id, profile.lichess_token)
 
-    if success:
-        print(f"[Wizard] Bot '{bot_id}' started. It will join games on Lichess when challenged.")
-    else:
-        print(f"[Wizard] Failed to start bot '{bot_id}'. Check logs/multi_bot_manager.log.")
+        if success:
+            print(f"[Wizard] ✓ Bot '{bot_id}' started and connected to Lichess!")
+            print(f"[Wizard] The bot will automatically accept challenges.")
+        else:
+            print(f"[Wizard] ✗ Failed to start bot '{bot_id}'.")
+            print(f"[Wizard] Check that your Lichess token is valid and the account is a BOT account.")
+    except Exception as e:
+        print(f"[Wizard] ✗ Error starting bot: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def run_wizard() -> None:

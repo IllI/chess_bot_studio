@@ -7,13 +7,18 @@ import random
 import json
 import threading
 import time
+import os
 from typing import Dict, Any, List, Optional, Callable
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from copy import deepcopy
+from pathlib import Path
 
 from config import DEFAULT_CONFIG
 from self_play import SelfPlayEngine, MatchResult, get_self_play_engine
+
+# Path for saving trained configs
+TRAINED_CONFIG_PATH = Path(__file__).parent / "configs" / "trained_best.json"
 
 
 @dataclass
@@ -80,11 +85,11 @@ class EvolutionaryOptimizer:
     
     def __init__(self,
                  base_config: Dict[str, Any] = None,
-                 population_size: int = 8,
-                 mutation_rate: float = 0.3,
-                 mutation_strength: float = 0.15,
-                 elite_count: int = 2,
-                 games_per_match: int = 4):
+                 population_size: int = 4,
+                 mutation_rate: float = 0.7,
+                 mutation_strength: float = 0.3,
+                 elite_count: int = 1,
+                 games_per_match: int = 2):
         """
         Initialize the evolutionary optimizer.
         
@@ -382,6 +387,8 @@ class EvolutionaryOptimizer:
                 self.best_ever = best_this_gen
                 self.session.best_config = best_this_gen.config
                 self.session.best_fitness = best_this_gen.fitness
+                # Auto-save when we find a new best
+                self.save_best_config(reason=f"new_best_gen_{gen + 1}")
             
             # Record generation stats
             gen_stats = {
@@ -403,6 +410,9 @@ class EvolutionaryOptimizer:
         
         self.session.status = "completed"
         self._is_running = False
+        
+        # Save final best config
+        self.save_best_config(reason="training_completed")
         
         return self.best_ever
     
@@ -456,13 +466,72 @@ class EvolutionaryOptimizer:
         self.best_ever = None
         self.session = None
     
+    def save_best_config(self, reason: str = "checkpoint") -> bool:
+        """Save the best configuration to disk for persistence."""
+        if self.best_ever is None:
+            return False
+        
+        try:
+            TRAINED_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            
+            save_data = {
+                'config': self.best_ever.config,
+                'fitness': self.best_ever.fitness,
+                'win_rate': self.best_ever.win_rate,
+                'generation': self.best_ever.generation,
+                'games_played': self.best_ever.games_played,
+                'saved_at': datetime.now().isoformat(),
+                'reason': reason,
+                'session_id': self.session.session_id if self.session else None
+            }
+            
+            with open(TRAINED_CONFIG_PATH, 'w') as f:
+                json.dump(save_data, f, indent=2)
+            
+            print(f"[Evolution] Best config saved ({reason}): fitness={self.best_ever.fitness:.1f}, win_rate={self.best_ever.win_rate:.1%}")
+            return True
+        except Exception as e:
+            print(f"[Evolution] Failed to save config: {e}")
+            return False
+    
+    @staticmethod
+    def load_trained_config() -> Optional[Dict[str, Any]]:
+        """Load the best trained configuration from disk."""
+        if not TRAINED_CONFIG_PATH.exists():
+            return None
+        
+        try:
+            with open(TRAINED_CONFIG_PATH, 'r') as f:
+                data = json.load(f)
+            return data.get('config')
+        except Exception as e:
+            print(f"[Evolution] Failed to load trained config: {e}")
+            return None
+    
     def get_status(self) -> Dict[str, Any]:
         """Get current training status."""
+        # Calculate games progress within current generation
+        games_in_gen = 0
+        total_games_in_gen = 0
+        if self.population:
+            n = len(self.population)
+            total_games_in_gen = (n * (n - 1) // 2) * self.games_per_match
+            # Sum games played by all genomes
+            games_in_gen = sum(g.games_played for g in self.population) // 2
+        
+        # Calculate total games across all generations
+        total_games_all = total_games_in_gen * (self.session.max_generations if self.session else 1)
+        games_completed = (self.generation * total_games_in_gen) + games_in_gen
+        
         return {
             'is_running': self._is_running,
             'is_paused': self._pause_requested,
             'generation': self.generation,
             'population_size': len(self.population),
+            'games_in_generation': games_in_gen,
+            'total_games_in_generation': total_games_in_gen,
+            'games_completed': games_completed,
+            'total_games': total_games_all,
             'best_ever': asdict(self.best_ever) if self.best_ever else None,
             'session': self.session.to_dict() if self.session else None
         }
