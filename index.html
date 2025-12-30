@@ -1,74 +1,95 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChessMaster AI Tutor: Architect Lab</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Space Grotesk', sans-serif;
-            background-color: #020617;
-            color: #f1f5f9;
-            margin: 0;
-            overflow-x: hidden;
-        }
-        .mono { font-family: 'JetBrains Mono', monospace; }
-        .glass {
-            background: rgba(15, 23, 42, 0.7);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        input[type=range] {
-            -webkit-appearance: none;
-            background: transparent;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 18px;
-            width: 18px;
-            border-radius: 50%;
-            background: #6366f1;
-            cursor: pointer;
-            box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
-            margin-top: -6px;
-            border: 2px solid white;
-        }
-        input[type=range]::-webkit-slider-runnable-track {
-            width: 100%;
-            height: 6px;
-            cursor: pointer;
-            background: #1e293b;
-            border-radius: 3px;
-        }
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: rgba(99, 102, 241, 0.3);
-            border-radius: 10px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: rgba(99, 102, 241, 0.5);
-        }
-        .shimmer {
-            background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.05), transparent);
-            background-size: 200% 100%;
-            animation: shimmer 3s infinite;
-        }
-        @keyframes shimmer {
-            0% { background-position: -200% 0; }
-            100% { background-position: 200% 0; }
-        }
-    </style>
-    <script type="importmap">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ChessMaster AI Tutor: Architect Lab</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background-color: #020617;
+      color: #f1f5f9;
+      margin: 0;
+      overflow-x: hidden;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .glass {
+      background: rgba(15, 23, 42, 0.7);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      background: transparent;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: #6366f1;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(99, 102, 241, 0.5);
+      margin-top: -6px;
+      border: 2px solid white;
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+      background: #1e293b;
+      border-radius: 3px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(99, 102, 241, 0.3);
+      border-radius: 10px;
+    }
+
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 102, 241, 0.5);
+    }
+
+    .shimmer {
+      background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.05), transparent);
+      background-size: 200% 100%;
+      animation: shimmer 3s infinite;
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -200% 0;
+      }
+
+      100% {
+        background-position: 200% 0;
+      }
+    }
+  </style>
+  <script type="importmap">
     {
       "imports": {
         "react": "https://esm.sh/react@18.3.1",
@@ -78,465 +99,1038 @@
     }
     </script>
 </head>
+
 <body>
-    <div id="root"></div>
-    <script type="text/babel" data-presets="react,typescript" data-type="module">
-        import React, { useState, useEffect, useRef } from 'react';
-        import ReactDOM from 'react-dom/client';
+  <div id="root"></div>
+  <script type="text/babel" data-presets="react,typescript" data-type="module">
+    import React, { useState, useEffect, useRef } from 'react';
+    import ReactDOM from 'react-dom/client';
 
-        // --- COMPONENTS ---
+    // --- COMPONENTS ---
 
-        const LearningCenter = ({ onContinue }) => {
-          return (
-            <div className="max-w-5xl mx-auto py-12 space-y-20">
-              <div className="text-center space-y-8">
-                <div 
-                  className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-widest mb-4"
-                >
-                  <span className="text-indigo-400">★</span> AI Fundamentals 101
+    const LearningCenter = ({ onContinue }) => {
+      return (
+        <div className="max-w-5xl mx-auto py-12 space-y-20">
+          <div className="text-center space-y-8">
+            <div
+              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-widest mb-4"
+            >
+              <span className="text-indigo-400">★</span> AI Fundamentals 101
+            </div>
+
+            <h1 className="text-6xl md:text-7xl font-black tracking-tight text-white leading-tight">
+              Master the <span className="text-indigo-500">Logic</span> <br /> behind the Bot.
+            </h1>
+            <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
+              Chess AI is a perfect sandbox to understand how machines "see" complexity through mathematical scoring and tree search.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <ConceptCard icon={<span className="text-indigo-400 font-bold">CPU</span>} title="Heuristics" description="Position evaluation logic: transforming a board state into a single numeric score." />
+            <ConceptCard icon={<span className="text-emerald-400 font-bold">Tree</span>} title="Search Tree" description="Minimax and Alpha-Beta: how computers look ahead into millions of future possibilities." />
+            <ConceptCard icon={<span className="text-red-400 font-bold">⊕</span>} title="Weight Tuning" description="Balancing priorities: Should the bot value raw material or positional mobility more?" />
+          </div>
+
+          <div className="glass rounded-[40px] p-12 flex flex-col md:flex-row items-center justify-between gap-12 bg-indigo-600/5 border-indigo-600/10 relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] pointer-events-none" />
+            <div className="space-y-4">
+              <h3 className="text-3xl font-bold text-white">Ready to Architect?</h3>
+              <p className="text-slate-400 text-lg">Initialize your configuration and enter the Tuning Lab.</p>
+            </div>
+            <button
+              onClick={onContinue}
+              className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-bold text-xl flex items-center gap-4 shadow-2xl shadow-indigo-600/30 transition-all active:scale-95 group"
+            >
+              Enter Lab <span className="inline-block">→</span>
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    const ConceptCard = ({ icon, title, description }) => (
+      <div className="glass p-8 rounded-[36px] bg-slate-900/30 border-white/5 hover:border-white/10 transition-all">
+        <div className="p-4 bg-slate-950 rounded-2xl w-fit mb-6 shadow-inner">{icon}</div>
+        <h4 className="text-lg font-bold mb-3 text-white">{title}</h4>
+        <p className="text-slate-400 text-sm leading-relaxed">{description}</p>
+      </div>
+    );
+
+    const TuningLab = ({ config, setConfig }) => {
+      const [aiReport, setAiReport] = useState(null);
+      const [isAnalyzing, setIsAnalyzing] = useState(false);
+      const [isSaving, setIsSaving] = useState(false);
+      const [saveMessage, setSaveMessage] = useState(null);
+      const [activeBotId, setActiveBotId] = useState("aggressive_v1");
+      const [showChallengeModal, setShowChallengeModal] = useState(false);
+
+      // Fetch saved config on mount
+      useEffect(() => {
+        fetch('http://localhost:5050/api/active-bots')
+          .then(res => res.json())
+          .then(data => {
+            if (data.ok && data.active_bots && data.active_bots.length > 0) {
+              const botId = data.active_bots[0];
+              setActiveBotId(botId);
+
+              // Fetch config for this bot
+              return fetch(`http://localhost:5050/api/get-config/${botId}`)
+                .then(res => res.json())
+                .then(configData => {
+                  if (configData.ok && configData.config) {
+                    setConfig({
+                      name: botId,
+                      ...configData.config
+                    });
+                  }
+                });
+            }
+          })
+          .catch(err => console.warn('Could not fetch bot config:', err));
+      }, []);
+
+      const updateWeight = (category, key, value) => {
+        const next = { ...config };
+        if (key && typeof next[category] === 'object') {
+          next[category][key] = value;
+        } else {
+          next[category] = value;
+        }
+        setConfig(next);
+      };
+
+      const getAIAnalysis = async () => {
+        setIsAnalyzing(true);
+        try {
+          // Local, non-networked stub for educational use only
+          const summary = [
+            `Personality: ${config.mobility_weight > 12 ? 'hyper-aggressive mobility hunter' : 'balanced classical engine'} with material baseline tuned to ${config.piece_values.queen} for the queen.`,
+            `Tactical bias: values ${config.mobility_weight > 12 ? 'initiative and piece activity over static structure' : 'solid material edges and king safety'}.`,
+            `Search profile: fixed depth ${config.search_depth} plies; encourage students to reason about time vs depth trade-offs.`
+          ];
+          setAiReport(summary.map(point => `• ${point}`).join('\n'));
+        } catch (e) {
+          console.error(e);
+          setAiReport("Architect helper stub is offline.");
+        } finally {
+          setIsAnalyzing(false);
+        }
+      };
+
+      const saveConfigToBot = async () => {
+        setIsSaving(true);
+        setSaveMessage(null);
+        try {
+          const response = await fetch(`http://localhost:5050/api/save-config/${activeBotId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ config })
+          });
+
+          const data = await response.json().catch(() => ({}));
+
+          if (!response.ok || !data.ok) {
+            const msg = data && data.error ? data.error : `HTTP ${response.status}`;
+            setSaveMessage(`Save failed: ${msg}`);
+            return;
+          }
+
+          setSaveMessage(null);
+          setShowChallengeModal(true);
+        } catch (e) {
+          setSaveMessage('Save failed: backend API not reachable. Is config_api_server running on port 5050?');
+        } finally {
+          setIsSaving(false);
+        }
+      };
+
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-8 space-y-6">
+            <div className="glass rounded-[40px] p-10 shadow-2xl relative overflow-hidden bg-slate-900/40">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/5 blur-[120px] pointer-events-none" />
+
+              <div className="flex items-center justify-between mb-12">
+                <div className="space-y-1">
+                  <h2 className="text-3xl font-black text-white">Heuristic Calibration</h2>
+                  <p className="text-slate-500 font-medium">Define the mathematical worth of every position.</p>
                 </div>
-
-                <h1 className="text-6xl md:text-7xl font-black tracking-tight text-white leading-tight">
-                  Master the <span className="text-indigo-500">Logic</span> <br/> behind the Bot.
-                </h1>
-                <p className="text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
-                  Chess AI is a perfect sandbox to understand how machines "see" complexity through mathematical scoring and tree search.
-                </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <ConceptCard icon={<span className="text-indigo-400 font-bold">CPU</span>} title="Heuristics" description="Position evaluation logic: transforming a board state into a single numeric score." />
-                <ConceptCard icon={<span className="text-emerald-400 font-bold">Tree</span>} title="Search Tree" description="Minimax and Alpha-Beta: how computers look ahead into millions of future possibilities." />
-                <ConceptCard icon={<span className="text-red-400 font-bold">⊕</span>} title="Weight Tuning" description="Balancing priorities: Should the bot value raw material or positional mobility more?" />
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+                <section className="space-y-10">
+                  <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+                    <span className="text-indigo-400 font-bold">⊕</span>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Static Piece Values</h3>
+                  </div>
 
-              <div className="glass rounded-[40px] p-12 flex flex-col md:flex-row items-center justify-between gap-12 bg-indigo-600/5 border-indigo-600/10 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 blur-[100px] pointer-events-none" />
-                <div className="space-y-4">
-                  <h3 className="text-3xl font-bold text-white">Ready to Architect?</h3>
-                  <p className="text-slate-400 text-lg">Initialize your configuration and enter the Tuning Lab.</p>
-                </div>
-                <button 
-                  onClick={onContinue}
-                  className="px-10 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-3xl font-bold text-xl flex items-center gap-4 shadow-2xl shadow-indigo-600/30 transition-all active:scale-95 group"
+                  <div className="space-y-8">
+                    {Object.entries(config.piece_values).map(([piece, val]) => (
+                      <div key={piece} className="space-y-3">
+                        <div className="flex justify-between items-end">
+                          <span className="text-sm font-bold text-slate-300 capitalize">
+                            {piece}
+                          </span>
+                          <span className="mono text-indigo-400 text-sm font-bold bg-indigo-500/10 px-2 py-0.5 rounded-lg">{val}</span>
+                        </div>
+                        <input
+                          type="range" min="0" max="1500" step="10" value={val}
+                          onChange={(e) => updateWeight('piece_values', piece, parseInt(e.target.value))}
+                          className="w-full accent-indigo-500"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-10">
+                  <div className="flex items-center gap-3 border-b border-white/5 pb-4">
+                    <span className="text-emerald-400 font-bold">⚖</span>
+                    <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Strategic Weighting</h3>
+                  </div>
+
+                  <div className="space-y-8">
+                    <div className="space-y-4">
+                      <div className="flex justify-between text-sm font-bold text-slate-300">
+                        <span>Mobility</span>
+                        <span className="mono text-emerald-400">+{config.mobility_weight}%</span>
+                      </div>
+                      <input
+                        type="range" min="0" max="100" step="1" value={config.mobility_weight}
+                        onChange={(e) => updateWeight('mobility_weight', null, parseInt(e.target.value))}
+                        className="w-full accent-emerald-500"
+                      />
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex justify-between text-sm font-bold text-slate-300">
+                        <span>King Safety Penalty</span>
+                        <span className="mono text-red-400">-{config.king_safety}</span>
+                      </div>
+                      <input
+                        type="range" min="0" max="200" step="5" value={config.king_safety}
+                        onChange={(e) => updateWeight('king_safety', null, parseInt(e.target.value))}
+                        className="w-full accent-red-500"
+                      />
+                    </div>
+
+                    <div className="p-6 bg-slate-950/50 rounded-3xl border border-white/5 mt-8">
+                      <div className="flex justify-between text-sm font-bold text-slate-300 mb-4">
+                        <span>Search Depth</span>
+                        <span className="mono text-indigo-400">{config.search_depth} Layers</span>
+                      </div>
+                      <input
+                        type="range" min="1" max="10" step="1" value={config.search_depth}
+                        onChange={(e) => updateWeight('search_depth', null, parseInt(e.target.value))}
+                        className="w-full accent-indigo-400"
+                      />
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+
+          <div className="lg:col-span-4 space-y-6">
+            <div className="glass rounded-[32px] p-8 shadow-xl border-indigo-500/20 bg-indigo-500/5 flex flex-col h-fit space-y-4">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-indigo-400">★</span>
+                <h3 className="font-bold text-xl">Architect Insight</h3>
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={getAIAnalysis}
+                  disabled={isAnalyzing}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 rounded-2xl font-bold transition-all text-white flex items-center justify-center gap-3"
                 >
-                  Enter Lab <span className="inline-block">→</span>
+                  {isAnalyzing ? <span className="animate-spin">⟳</span> : <>Generate Report <span className="inline-block">→</span></>}
+                </button>
+                <button
+                  onClick={saveConfigToBot}
+                  disabled={isSaving}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 rounded-2xl font-bold transition-all text-white flex items-center justify-center gap-3"
+                >
+                  {isSaving ? <span className="animate-spin">⟳</span> : <>Save to Model <span className="inline-block">⇥</span></>}
                 </button>
               </div>
+              {aiReport && (
+                <div
+                  className="mt-6 text-sm text-slate-300 bg-black/30 p-4 rounded-xl border border-white/5"
+                >
+                  {aiReport}
+                </div>
+              )}
+              {saveMessage && !saveMessage.includes('Saved') && (
+                <div className="mt-2 text-xs text-slate-200 bg-black/40 p-3 rounded-xl border border-red-500/30 whitespace-pre-line">
+                  {saveMessage}
+                </div>
+              )}
             </div>
-          );
-        };
-
-        const ConceptCard = ({ icon, title, description }) => (
-          <div className="glass p-8 rounded-[36px] bg-slate-900/30 border-white/5 hover:border-white/10 transition-all">
-            <div className="p-4 bg-slate-950 rounded-2xl w-fit mb-6 shadow-inner">{icon}</div>
-            <h4 className="text-lg font-bold mb-3 text-white">{title}</h4>
-            <p className="text-slate-400 text-sm leading-relaxed">{description}</p>
           </div>
-        );
 
-        const TuningLab = ({ config, setConfig }) => {
-          const [aiReport, setAiReport] = useState(null);
-          const [isAnalyzing, setIsAnalyzing] = useState(false);
-          const [isSaving, setIsSaving] = useState(false);
-          const [saveMessage, setSaveMessage] = useState(null);
-          const [activeBotId, setActiveBotId] = useState("aggressive_v1");
+          {/* Challenge Modal */}
+          {showChallengeModal && (
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setShowChallengeModal(false)}>
+              <div className="glass rounded-[32px] p-8 max-w-lg mx-4 border border-emerald-500/30 bg-slate-900/95" onClick={e => e.stopPropagation()}>
+                <div className="text-center space-y-6">
+                  <div className="text-5xl">🎉</div>
+                  <h3 className="text-2xl font-bold text-white">Configuration Saved!</h3>
+                  <p className="text-slate-400">
+                    Your bot has been updated with the new heuristics and is ready to play.
+                  </p>
 
-          // Fetch saved config on mount
-          useEffect(() => {
-            fetch('http://localhost:5050/api/active-bots')
-              .then(res => res.json())
-              .then(data => {
-                if (data.ok && data.active_bots && data.active_bots.length > 0) {
-                  const botId = data.active_bots[0];
-                  setActiveBotId(botId);
-                  
-                  // Fetch config for this bot
-                  return fetch(`http://localhost:5050/api/get-config/${botId}`)
-                    .then(res => res.json())
-                    .then(configData => {
-                      if (configData.ok && configData.config) {
-                        setConfig({
-                          name: botId,
-                          ...configData.config
-                        });
-                      }
-                    });
-                }
-              })
-              .catch(err => console.warn('Could not fetch bot config:', err));
-          }, []);
-
-          const updateWeight = (category, key, value) => {
-            const next = { ...config };
-            if (key && typeof next[category] === 'object') {
-              next[category][key] = value;
-            } else {
-              next[category] = value;
-            }
-            setConfig(next);
-          };
-
-          const getAIAnalysis = async () => {
-            setIsAnalyzing(true);
-            try {
-              // Local, non-networked stub for educational use only
-              const summary = [
-                `Personality: ${config.mobility_weight > 12 ? 'hyper-aggressive mobility hunter' : 'balanced classical engine'} with material baseline tuned to ${config.piece_values.queen} for the queen.`,
-                `Tactical bias: values ${config.mobility_weight > 12 ? 'initiative and piece activity over static structure' : 'solid material edges and king safety'}.`,
-                `Search profile: fixed depth ${config.search_depth} plies; encourage students to reason about time vs depth trade-offs.`
-              ];
-              setAiReport(summary.map(point => `• ${point}`).join('\n'));
-            } catch (e) {
-              console.error(e);
-              setAiReport("Architect helper stub is offline.");
-            } finally {
-              setIsAnalyzing(false);
-            }
-          };
-
-          const saveConfigToBot = async () => {
-            setIsSaving(true);
-            setSaveMessage(null);
-            try {
-              const response = await fetch(`http://localhost:5050/api/save-config/${activeBotId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ config })
-              });
-
-              const data = await response.json().catch(() => ({}));
-
-              if (!response.ok || !data.ok) {
-                const msg = data && data.error ? data.error : `HTTP ${response.status}`;
-                setSaveMessage(`Save failed: ${msg}`);
-                return;
-              }
-
-              setSaveMessage(`Saved & Bot Restarted! Configuration applied to ${activeBotId}.`);
-            } catch (e) {
-              setSaveMessage('Save failed: backend API not reachable. Is config_api_server running on port 5050?');
-            } finally {
-              setIsSaving(false);
-            }
-          };
-
-          return (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-8 space-y-6">
-                <div className="glass rounded-[40px] p-10 shadow-2xl relative overflow-hidden bg-slate-900/40">
-                  <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-600/5 blur-[120px] pointer-events-none" />
-                  
-                  <div className="flex items-center justify-between mb-12">
-                    <div className="space-y-1">
-                      <h2 className="text-3xl font-black text-white">Heuristic Calibration</h2>
-                      <p className="text-slate-500 font-medium">Define the mathematical worth of every position.</p>
-                    </div>
+                  <div className="bg-slate-950/80 rounded-2xl p-6 text-left space-y-4 border border-white/5">
+                    <h4 className="font-bold text-emerald-400 flex items-center gap-2">
+                      <span>⚔</span> Challenge Your Bot
+                    </h4>
+                    <ol className="text-sm text-slate-300 space-y-3">
+                      <li className="flex gap-3">
+                        <span className="text-indigo-400 font-bold">1.</span>
+                        <span>Click the button below to open your bot's Lichess profile</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="text-indigo-400 font-bold">2.</span>
+                        <span>Click the <span className="font-bold text-white">Challenge</span> button on the profile</span>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="text-indigo-400 font-bold">3.</span>
+                        <span>Select time control (Rapid 10+0 recommended) and start playing!</span>
+                      </li>
+                    </ol>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                    <section className="space-y-10">
-                      <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-                        <span className="text-indigo-400 font-bold">⊕</span>
-                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Static Piece Values</h3>
-                      </div>
-                      
-                      <div className="space-y-8">
-                        {Object.entries(config.piece_values).map(([piece, val]) => (
-                          <div key={piece} className="space-y-3">
-                            <div className="flex justify-between items-end">
-                              <span className="text-sm font-bold text-slate-300 capitalize">
-                                {piece}
-                              </span>
-                              <span className="mono text-indigo-400 text-sm font-bold bg-indigo-500/10 px-2 py-0.5 rounded-lg">{val}</span>
-                            </div>
-                            <input
-                              type="range" min="0" max="1500" step="10" value={val}
-                              onChange={(e) => updateWeight('piece_values', piece, parseInt(e.target.value))}
-                              className="w-full accent-indigo-500"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-
-                    <section className="space-y-10">
-                      <div className="flex items-center gap-3 border-b border-white/5 pb-4">
-                        <span className="text-emerald-400 font-bold">⚖</span>
-                        <h3 className="text-xs font-black uppercase tracking-widest text-slate-400">Strategic Weighting</h3>
-                      </div>
-
-                      <div className="space-y-8">
-                        <div className="space-y-4">
-                          <div className="flex justify-between text-sm font-bold text-slate-300">
-                            <span>Mobility</span>
-                            <span className="mono text-emerald-400">+{config.mobility_weight}%</span>
-                          </div>
-                          <input
-                            type="range" min="0" max="100" step="1" value={config.mobility_weight}
-                            onChange={(e) => updateWeight('mobility_weight', null, parseInt(e.target.value))}
-                            className="w-full accent-emerald-500"
-                          />
-                        </div>
-
-                        <div className="space-y-4">
-                          <div className="flex justify-between text-sm font-bold text-slate-300">
-                            <span>King Safety Penalty</span>
-                            <span className="mono text-red-400">-{config.king_safety}</span>
-                          </div>
-                          <input
-                            type="range" min="0" max="200" step="5" value={config.king_safety}
-                            onChange={(e) => updateWeight('king_safety', null, parseInt(e.target.value))}
-                            className="w-full accent-red-500"
-                          />
-                        </div>
-
-                        <div className="p-6 bg-slate-950/50 rounded-3xl border border-white/5 mt-8">
-                          <div className="flex justify-between text-sm font-bold text-slate-300 mb-4">
-                            <span>Search Depth</span>
-                            <span className="mono text-indigo-400">{config.search_depth} Layers</span>
-                          </div>
-                          <input
-                            type="range" min="1" max="10" step="1" value={config.search_depth}
-                            onChange={(e) => updateWeight('search_depth', null, parseInt(e.target.value))}
-                            className="w-full accent-indigo-400"
-                          />
-                        </div>
-                      </div>
-                    </section>
-                  </div>
-                </div>
-              </div>
-
-              <div className="lg:col-span-4 space-y-6">
-                <div className="glass rounded-[32px] p-8 shadow-xl border-indigo-500/20 bg-indigo-500/5 flex flex-col h-fit space-y-4">
-                  <div className="flex items-center gap-3 mb-6 text-white">
-                    <span className="text-indigo-400">★</span>
-                    <h3 className="font-bold text-xl">Architect Insight</h3>
-                  </div>
-                  <div className="space-y-3">
-                    <button
-                      onClick={getAIAnalysis}
-                      disabled={isAnalyzing}
-                      className="w-full py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 rounded-2xl font-bold transition-all text-white flex items-center justify-center gap-3"
+                  <div className="flex flex-col gap-3">
+                    <a
+                      href="https://lichess.org/@/citizen_bot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all"
                     >
-                      {isAnalyzing ? <span className="animate-spin">⟳</span> : <>Generate Report <span className="inline-block">→</span></>}
-                    </button>
+                      <span>♟</span> Open Bot on Lichess <span>→</span>
+                    </a>
                     <button
-                      onClick={saveConfigToBot}
-                      disabled={isSaving}
-                      className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 rounded-2xl font-bold transition-all text-white flex items-center justify-center gap-3"
+                      onClick={() => setShowChallengeModal(false)}
+                      className="w-full py-3 bg-slate-800 hover:bg-slate-700 rounded-2xl font-medium text-slate-300 transition-all"
                     >
-                      {isSaving ? <span className="animate-spin">⟳</span> : <>Save to Model <span className="inline-block">⇥</span></>}
+                      Continue Tuning
                     </button>
                   </div>
-                  {aiReport && (
-                    <div 
-                      className="mt-6 text-sm text-slate-300 bg-black/30 p-4 rounded-xl border border-white/5"
-                    >
-                      {aiReport}
-                    </div>
-                  )}
-                  {saveMessage && (
-                    <div className="mt-2 text-xs text-slate-200 bg-black/40 p-3 rounded-xl border border-emerald-500/30 whitespace-pre-line">
-                      {saveMessage}
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
-          );
-        };
+          )}
+        </div>
+      );
+    };
 
-        const EngineArena = ({ config }) => {
-          const [isSimulating, setIsSimulating] = useState(false);
-          const [nodes, setNodes] = useState(0);
-          const [evalScore, setEvalScore] = useState(0.0);
-          const [logs, setLogs] = useState([]);
-          const logEndRef = useRef(null);
-
-          useEffect(() => {
-            logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-          }, [logs]);
-
-          const addLog = (msg) => {
-            setLogs(prev => [...prev.slice(-15), msg]);
-          };
-
-          const startTest = () => {
-            setIsSimulating(true);
-            setLogs([]);
-            setNodes(0);
-            setEvalScore(0.0);
-            
-            addLog("> UCI ok");
-            addLog("> position startpos moves e2e4 e7e5");
-            
-            let n = 0;
-            const interval = setInterval(() => {
-              const increment = Math.floor(Math.random() * 50000);
-              n += increment;
-              setNodes(n);
-              setEvalScore(prev => prev + (Math.random() - 0.5) * 0.1);
-              if (Math.random() > 0.8) {
-                addLog(`info depth ${config.search_depth} nodes ${n} score cp ${Math.floor(evalScore * 100)} pv g1f3`);
+    // Live Chessboard Component
+    const LiveChessboard = ({ fen, whiteId, blackId, moveCount, lastMove }) => {
+      const defaultFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+      const currentFen = fen || defaultFen;
+      
+      // Parse FEN to get piece positions
+      const parseFen = (fenString) => {
+        const [position] = fenString.split(' ');
+        const rows = position.split('/');
+        const board = [];
+        
+        for (let row of rows) {
+          const boardRow = [];
+          for (let char of row) {
+            if (isNaN(char)) {
+              boardRow.push(char);
+            } else {
+              for (let i = 0; i < parseInt(char); i++) {
+                boardRow.push(null);
               }
-            }, 200);
-
-            setTimeout(() => {
-              clearInterval(interval);
-              setIsSimulating(false);
-              addLog("bestmove g1f3");
-            }, 4000);
-          };
-
-          return (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-              <div className="lg:col-span-7">
-                <div className="glass rounded-[48px] p-10 aspect-square flex flex-col items-center justify-center relative overflow-hidden bg-slate-900/40">
-                  <div className="text-center space-y-8 relative z-10">
-                    {isSimulating ? (
-                      <div className="flex flex-col items-center gap-6">
-                        <div className="relative">
-                          <div className="w-32 h-32 rounded-full border-4 border-indigo-500/10 border-t-indigo-500 animate-spin" />
-                          <span className="text-indigo-400 font-bold text-3xl">CPU</span>
-                        </div>
-                        <div className="mono text-4xl font-bold text-white tracking-tighter">{(nodes/1000).toFixed(1)}k Nodes</div>
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500 font-bold">Search Horizon: Depth {config.search_depth}</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-8">
-                        <span className="text-slate-700 font-bold text-5xl mx-auto">⚔</span>
-                        <button
-                          onClick={startTest}
-                          className="px-12 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[24px] font-bold text-xl flex items-center gap-3 shadow-xl shadow-indigo-600/20 transition-all active:scale-95"
-                        >
-                          <span className="text-indigo-400 font-bold">▶</span> Start Simulation
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="absolute right-10 top-1/2 -translate-y-1/2 w-4 h-[60%] bg-slate-950/80 rounded-full overflow-hidden border border-white/10 p-1">
+            }
+          }
+          board.push(boardRow);
+        }
+        return board;
+      };
+      
+      // Get piece unicode symbol
+      const getPieceSymbol = (piece) => {
+        const symbols = {
+          'K': '♔', 'Q': '♕', 'R': '♖', 'B': '♗', 'N': '♘', 'P': '♙',
+          'k': '♚', 'q': '♛', 'r': '♜', 'b': '♝', 'n': '♞', 'p': '♟'
+        };
+        return symbols[piece] || '';
+      };
+      
+      // Parse last move to highlight squares
+      const getHighlightSquares = (move) => {
+        if (!move || move.length < 4) return { from: null, to: null };
+        const files = 'abcdefgh';
+        const fromFile = files.indexOf(move[0]);
+        const fromRank = 8 - parseInt(move[1]);
+        const toFile = files.indexOf(move[2]);
+        const toRank = 8 - parseInt(move[3]);
+        return {
+          from: { row: fromRank, col: fromFile },
+          to: { row: toRank, col: toFile }
+        };
+      };
+      
+      const board = parseFen(currentFen);
+      const highlight = getHighlightSquares(lastMove);
+      
+      const isHighlighted = (row, col) => {
+        if (!highlight.from && !highlight.to) return false;
+        return (highlight.from?.row === row && highlight.from?.col === col) ||
+               (highlight.to?.row === row && highlight.to?.col === col);
+      };
+      
+      return (
+        <div className="glass rounded-[32px] p-6 shadow-xl border-purple-500/20 bg-purple-500/5">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3 text-white">
+              <span className="text-purple-400">♟</span>
+              <h3 className="font-bold text-lg">Live Game</h3>
+            </div>
+            {moveCount > 0 && (
+              <span className="text-xs font-mono text-purple-400 bg-purple-500/10 px-2 py-1 rounded-lg">
+                Move {moveCount}
+              </span>
+            )}
+          </div>
+          
+          {/* Player labels */}
+          <div className="flex justify-between text-xs text-slate-400 mb-2 px-1">
+            <span className="truncate max-w-[45%]">⚫ {blackId || 'Black'}</span>
+          </div>
+          
+          {/* Chess board */}
+          <div className="aspect-square bg-slate-950 rounded-xl overflow-hidden border border-white/10">
+            <div className="grid grid-cols-8 grid-rows-8 h-full w-full">
+              {board.map((row, rowIdx) =>
+                row.map((piece, colIdx) => {
+                  const isLight = (rowIdx + colIdx) % 2 === 0;
+                  const highlighted = isHighlighted(rowIdx, colIdx);
+                  return (
                     <div
-                      style={{ height: `${50 + (evalScore * 10)}%` }}
-                      className={`w-full rounded-full transition-all duration-700 ${evalScore >= 0 ? 'bg-indigo-500' : 'bg-red-500'}`}
+                      key={`${rowIdx}-${colIdx}`}
+                      className={`flex items-center justify-center text-2xl sm:text-3xl transition-colors ${
+                        highlighted
+                          ? 'bg-yellow-500/40'
+                          : isLight
+                            ? 'bg-amber-100/90'
+                            : 'bg-amber-800/90'
+                      }`}
+                    >
+                      <span className={piece && piece === piece.toUpperCase() ? 'text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]' : 'text-slate-900'}>
+                        {getPieceSymbol(piece)}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+          
+          {/* Player labels */}
+          <div className="flex justify-between text-xs text-slate-400 mt-2 px-1">
+            <span className="truncate max-w-[45%]">⚪ {whiteId || 'White'}</span>
+          </div>
+          
+          {/* Last move indicator */}
+          {lastMove && (
+            <div className="mt-3 text-center">
+              <span className="text-xs text-slate-500">Last move: </span>
+              <span className="text-xs font-mono text-purple-400">{lastMove}</span>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // Training Lab Component
+    const TrainingLab = ({ config, setConfig }) => {
+      const [isTraining, setIsTraining] = useState(false);
+      const [isPaused, setIsPaused] = useState(false);
+      const [trainingStatus, setTrainingStatus] = useState(null);
+      const [generations, setGenerations] = useState(10);
+      const [populationSize, setPopulationSize] = useState(6);
+      const [gamesPerMatch, setGamesPerMatch] = useState(4);
+      const [logs, setLogs] = useState([]);
+      const [currentGame, setCurrentGame] = useState(null);
+      const logEndRef = useRef(null);
+
+      // Poll training status
+      useEffect(() => {
+        if (!isTraining) return;
+
+        const interval = setInterval(() => {
+          fetch('http://localhost:5050/api/training/status')
+            .then(res => res.json())
+            .then(data => {
+              if (data.ok) {
+                setTrainingStatus(data);
+                if (data.session) {
+                  const gen = data.session.current_generation;
+                  const lastLog = logs[logs.length - 1];
+                  if (!lastLog || !lastLog.includes(`Gen ${gen}`)) {
+                    addLog(`Gen ${gen}/${data.session.max_generations} - Best fitness: ${data.session.best_fitness?.toFixed(1) || 0}`);
+                  }
+                  if (data.session.status === 'completed' || data.session.status === 'stopped') {
+                    setIsTraining(false);
+                    addLog(`Training ${data.session.status}!`);
+                  }
+                }
+              }
+            })
+            .catch(err => console.error('Status poll error:', err));
+        }, 2000);
+
+        return () => clearInterval(interval);
+      }, [isTraining, logs]);
+
+      // Poll current game state for live chessboard
+      useEffect(() => {
+        if (!isTraining) {
+          setCurrentGame(null);
+          return;
+        }
+
+        const gameInterval = setInterval(() => {
+          fetch('http://localhost:5050/api/training/current-game')
+            .then(res => res.json())
+            .then(data => {
+              if (data.ok && data.game) {
+                setCurrentGame(data.game);
+              } else {
+                setCurrentGame(null);
+              }
+            })
+            .catch(err => console.error('Game poll error:', err));
+        }, 500);
+
+        return () => clearInterval(gameInterval);
+      }, [isTraining]);
+
+      useEffect(() => {
+        logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, [logs]);
+
+      const addLog = (msg) => {
+        const timestamp = new Date().toLocaleTimeString();
+        setLogs(prev => [...prev.slice(-20), `[${timestamp}] ${msg}`]);
+      };
+
+      const startTraining = async () => {
+        setLogs([]);
+        addLog('Resetting previous session...');
+
+        // Reset first to clear any stuck state
+        try {
+          await fetch('http://localhost:5050/api/training/reset', { method: 'POST' });
+        } catch (e) {
+          // Ignore reset errors
+        }
+
+        addLog('Initializing evolutionary training...');
+        setIsTraining(true);
+        setIsPaused(false);
+        setTrainingStatus(null);
+
+        try {
+          const response = await fetch('http://localhost:5050/api/training/start', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              max_generations: generations,
+              population_size: populationSize,
+              games_per_match: gamesPerMatch
+            })
+          });
+          const data = await response.json();
+          if (data.ok) {
+            addLog(`🧬 Evolution started!`);
+            addLog(`Population: ${populationSize} unique configurations`);
+            addLog(`Games per matchup: ${gamesPerMatch}`);
+            addLog(`Target: ${generations} generations`);
+            addLog('---');
+            addLog('Self-play matches beginning...');
+          } else {
+            addLog(`❌ Error: ${data.error}`);
+            setIsTraining(false);
+          }
+        } catch (e) {
+          addLog(`❌ Connection error: ${e.message}`);
+          setIsTraining(false);
+        }
+      };
+
+      const stopTraining = async () => {
+        addLog('Stopping training...');
+        await fetch('http://localhost:5050/api/training/stop', { method: 'POST' });
+        setIsTraining(false);
+        setIsPaused(false);
+      };
+
+      const togglePause = async () => {
+        if (isPaused) {
+          await fetch('http://localhost:5050/api/training/resume', { method: 'POST' });
+          addLog('Training resumed');
+        } else {
+          await fetch('http://localhost:5050/api/training/pause', { method: 'POST' });
+          addLog('Training paused');
+        }
+        setIsPaused(!isPaused);
+      };
+
+      const applyBestConfig = () => {
+        if (trainingStatus?.session?.best_config) {
+          setConfig({
+            ...config,
+            ...trainingStatus.session.best_config
+          });
+          addLog('Best configuration applied to your model!');
+        }
+      };
+
+      const progress = trainingStatus?.session?.progress_percent || 0;
+      const currentGen = trainingStatus?.session?.current_generation || 0;
+      const maxGen = trainingStatus?.session?.max_generations || generations;
+      const bestFitness = trainingStatus?.session?.best_fitness || 0;
+
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-7 space-y-6">
+            <div className="glass rounded-[40px] p-10 shadow-2xl relative overflow-hidden bg-slate-900/40">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-purple-600/5 blur-[120px] pointer-events-none" />
+
+              <div className="flex items-center justify-between mb-8">
+                <div className="space-y-1">
+                  <h2 className="text-3xl font-black text-white">Evolutionary Training</h2>
+                  <p className="text-slate-500 font-medium">Self-play optimization through natural selection</p>
+                </div>
+                <div className="glass px-4 py-2 rounded-2xl border-purple-500/20">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-purple-400">Phase 1</span>
+                </div>
+              </div>
+
+              {/* Training Controls */}
+              <div className="space-y-6 mb-8">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Generations</label>
+                    <input
+                      type="number" min="1" max="50" value={generations}
+                      onChange={(e) => setGenerations(parseInt(e.target.value) || 10)}
+                      disabled={isTraining}
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Population</label>
+                    <input
+                      type="number" min="4" max="20" value={populationSize}
+                      onChange={(e) => setPopulationSize(parseInt(e.target.value) || 6)}
+                      disabled={isTraining}
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Games/Match</label>
+                    <input
+                      type="number" min="2" max="10" value={gamesPerMatch}
+                      onChange={(e) => setGamesPerMatch(parseInt(e.target.value) || 4)}
+                      disabled={isTraining}
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
                     />
                   </div>
                 </div>
-              </div>
-              <div className="lg:col-span-5 space-y-6">
-                <div className="glass rounded-[32px] p-8 h-[400px] flex flex-col bg-black/20">
-                  <h3 className="font-bold text-sm uppercase tracking-widest mb-6 flex items-center gap-3 text-slate-400">
-                    <span className="text-indigo-400">›</span> UCI Engine Output
-                  </h3>
-                  <div className="flex-1 overflow-y-auto space-y-1 mono text-[11px] text-slate-400 custom-scrollbar">
-                    {logs.length === 0 && <div className="italic text-slate-600">Waiting for engine start...</div>}
-                    {logs.map((log, i) => (
-                      <div key={i} className="flex gap-2">
-                        <span className="text-indigo-500 shrink-0 opacity-50">›</span>
-                        <span>{log}</span>
-                      </div>
-                    ))}
-                    <div ref={logEndRef} />
-                  </div>
+
+                <div className="flex gap-3">
+                  {!isTraining ? (
+                    <button
+                      onClick={startTraining}
+                      className="flex-1 py-4 bg-purple-600 hover:bg-purple-500 rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all"
+                    >
+                      <span>🧬</span> Start Evolution
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={togglePause}
+                        className={`flex-1 py-4 ${isPaused ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-yellow-600 hover:bg-yellow-500'} rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all`}
+                      >
+                        {isPaused ? '▶ Resume' : '⏸ Pause'}
+                      </button>
+                      <button
+                        onClick={stopTraining}
+                        className="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all"
+                      >
+                        ⏹ Stop
+                      </button>
+                    </>
+                  )}
                 </div>
-                
-                <div className="glass rounded-[32px] p-6 bg-indigo-500/5 border-indigo-500/10">
-                   <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Live Evaluation</span>
-                      <span className={`mono text-sm font-bold ${isSimulating ? 'text-indigo-400' : 'text-slate-600'}`}>
-                        {isSimulating ? (evalScore >= 0 ? '+' : '') + evalScore.toFixed(2) : '0.00'}
-                      </span>
-                   </div>
+              </div>
+
+              {/* Progress */}
+              <div className="space-y-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">Training Progress</span>
+                  <span className="font-mono text-purple-400">{currentGen}/{maxGen} generations</span>
+                </div>
+                <div className="h-4 bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                  <div
+                    style={{ width: `${progress}%` }}
+                    className="h-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-500"
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Best Fitness: <span className="text-purple-400 font-bold">{bestFitness.toFixed(1)}</span></span>
+                  <span>{progress.toFixed(0)}% complete</span>
                 </div>
               </div>
             </div>
-          );
-        };
 
-        // --- MAIN APP ---
-
-        const DEFAULT_CONFIG = {
-          name: "New Recruit",
-          piece_values: { pawn: 100, knight: 320, bishop: 330, rook: 500, queen: 900 },
-          mobility_weight: 10,
-          king_safety: 20,
-          search_depth: 4
-        };
-
-        const App = () => {
-          const [activeView, setActiveView] = useState('learn');
-          const [config, setConfig] = useState(DEFAULT_CONFIG);
-
-          return (
-            <div className="min-h-screen flex flex-col bg-[#020617] text-slate-100">
-              <nav className="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-600/30">
-                    <span className="text-white font-bold text-lg">CM</span>
+            {/* Logs */}
+            <div className="glass rounded-[32px] p-8 h-[300px] flex flex-col bg-black/20">
+              <h3 className="font-bold text-sm uppercase tracking-widest mb-6 flex items-center gap-3 text-slate-400">
+                <span className="text-purple-400">›</span> Training Log
+              </h3>
+              <div className="flex-1 overflow-y-auto space-y-1 mono text-[11px] text-slate-400 custom-scrollbar">
+                {logs.length === 0 && <div className="italic text-slate-600">Configure parameters and start training...</div>}
+                {logs.map((log, i) => (
+                  <div key={i} className="flex gap-2">
+                    <span className="text-purple-500 shrink-0 opacity-50">›</span>
+                    <span>{log}</span>
                   </div>
+                ))}
+                <div ref={logEndRef} />
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Live Chessboard */}
+            {isTraining && (
+              currentGame ? (
+                <LiveChessboard
+                  fen={currentGame?.fen}
+                  whiteId={currentGame?.white_id}
+                  blackId={currentGame?.black_id}
+                  moveCount={currentGame?.move_count}
+                  lastMove={currentGame?.last_move}
+                />
+              ) : (
+                <div className="glass rounded-[32px] p-6 shadow-xl border-purple-500/20 bg-purple-500/5">
+                  <div className="flex items-center gap-3 mb-4 text-white">
+                    <span className="text-purple-400">♟</span>
+                    <h3 className="font-bold text-lg">Live Game</h3>
+                  </div>
+                  <div className="aspect-square bg-slate-950 rounded-xl flex items-center justify-center border border-white/10">
+                    <div className="text-center space-y-3">
+                      <div className="text-4xl animate-pulse">♟</div>
+                      <p className="text-sm text-slate-400">Waiting for next game...</p>
+                    </div>
+                  </div>
+                </div>
+              )
+            )}
+
+            {/* Parameter Guide */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-blue-500/20 bg-blue-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-blue-400">📖</span>
+                <h3 className="font-bold text-xl">Parameter Guide</h3>
+              </div>
+              <div className="space-y-4 text-sm text-slate-300">
+                <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
+                  <div className="font-bold text-blue-400 mb-1">Generations</div>
+                  <p className="text-xs text-slate-400">Number of evolution cycles. Each generation creates new configurations from winners of the previous round. More generations = more refined results but longer training.</p>
+                </div>
+                <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
+                  <div className="font-bold text-blue-400 mb-1">Population Size</div>
+                  <p className="text-xs text-slate-400">How many unique weight configurations compete each generation. Larger populations explore more possibilities but train slower.</p>
+                </div>
+                <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
+                  <div className="font-bold text-blue-400 mb-1">Games per Match</div>
+                  <p className="text-xs text-slate-400">Games played between each pair of configurations. More games = more accurate fitness scores but longer evaluation time.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* How Evolution Works */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-purple-500/20 bg-purple-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-purple-400">🧬</span>
+                <h3 className="font-bold text-xl">Evolutionary Algorithm</h3>
+              </div>
+              <div className="space-y-4 text-sm text-slate-300">
+                <div className="flex gap-3">
+                  <span className="text-purple-400 font-bold shrink-0">1.</span>
                   <div>
-                    <h1 className="text-xl font-bold tracking-tight text-white">ChessMaster <span className="text-indigo-400">Architect</span></h1>
-                    <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">AI Training Environment</p>
+                    <span className="font-bold text-white">Initialize</span>
+                    <p className="text-xs text-slate-400 mt-1">Create population with random mutations of your current config</p>
                   </div>
                 </div>
-
-                <div className="flex gap-2 bg-slate-900/50 p-1 rounded-2xl border border-white/5">
-                  <NavButton active={activeView === 'learn'} onClick={() => setActiveView('learn')} icon={<span>A</span>} label="Academy" />
-                  <NavButton active={activeView === 'tune'} onClick={() => setActiveView('tune')} icon={<span>⚙</span>} label="Lab" />
-                  <NavButton active={activeView === 'arena'} onClick={() => setActiveView('arena')} icon={<span>▶</span>} label="Arena" />
-                </div>
-
-                <div className="hidden md:flex items-center gap-4">
-                  <a href="https://github.com/IllI/chess_bot" target="_blank" className="text-slate-400 hover:text-white transition-colors">
-                    <span className="font-mono text-sm">GH</span>
-                  </a>
-                  <div className="h-8 w-[1px] bg-white/10" />
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                    <span className="text-[10px] font-bold text-green-500 uppercase">Engine Online</span>
+                <div className="flex gap-3">
+                  <span className="text-purple-400 font-bold shrink-0">2.</span>
+                  <div>
+                    <span className="font-bold text-white">Evaluate</span>
+                    <p className="text-xs text-slate-400 mt-1">Each config plays chess against others. Win rate = fitness score</p>
                   </div>
                 </div>
-              </nav>
-
-              <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
-                {activeView === 'learn' && <LearningCenter onContinue={() => setActiveView('tune')} />}
-                {activeView === 'tune' && <TuningLab config={config} setConfig={setConfig} />}
-                {activeView === 'arena' && <EngineArena config={config} />}
-              </main>
-
-              <footer className="py-6 px-8 border-t border-white/5 bg-slate-950/50 text-slate-500 text-xs flex justify-between">
-                <p> 2024 Chess Bot Instructional Platform</p>
-                <div className="flex gap-6">
-                  <button className="hover:text-slate-300">Privacy</button>
-                  <button className="hover:text-slate-300">Docs</button>
-                  <button className="hover:text-slate-300">API Status</button>
+                <div className="flex gap-3">
+                  <span className="text-purple-400 font-bold shrink-0">3.</span>
+                  <div>
+                    <span className="font-bold text-white">Select</span>
+                    <p className="text-xs text-slate-400 mt-1">Top performers survive. Losers are eliminated (natural selection)</p>
+                  </div>
                 </div>
-              </footer>
+                <div className="flex gap-3">
+                  <span className="text-purple-400 font-bold shrink-0">4.</span>
+                  <div>
+                    <span className="font-bold text-white">Reproduce</span>
+                    <p className="text-xs text-slate-400 mt-1">Winners combine (crossover) and mutate to create next generation</p>
+                  </div>
+                </div>
+              </div>
             </div>
-          );
-        };
 
-        const NavButton = ({ active, onClick, icon, label }) => (
-          <button
-            onClick={onClick}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${
-              active 
-                ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20' 
-                : 'text-slate-400 hover:text-white hover:bg-white/5'
-            }`}
-          >
-            {icon}
-            <span className="text-sm font-semibold">{label}</span>
-          </button>
-        );
+            {trainingStatus?.session?.best_config && (
+              <div className="glass rounded-[32px] p-8 border-emerald-500/20 bg-emerald-500/5">
+                <div className="flex items-center gap-3 mb-6 text-white">
+                  <span className="text-emerald-400">🏆</span>
+                  <h3 className="font-bold text-xl">Best Configuration</h3>
+                </div>
+                <div className="space-y-3 text-sm mb-6">
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Mobility Weight</span>
+                    <span className="font-mono text-emerald-400">{trainingStatus.session.best_config.mobility_weight?.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Search Depth</span>
+                    <span className="font-mono text-emerald-400">{trainingStatus.session.best_config.search_depth}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Win Rate</span>
+                    <span className="font-mono text-emerald-400">{((trainingStatus.session.best_fitness || 0) * 10).toFixed(0)}%</span>
+                  </div>
+                </div>
+                <button
+                  onClick={applyBestConfig}
+                  className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 rounded-2xl font-bold text-white transition-all"
+                >
+                  Apply to Your Model
+                </button>
+              </div>
+            )}
 
-        const rootElement = document.getElementById('root');
-        if (rootElement) {
-          const root = ReactDOM.createRoot(rootElement);
-          root.render(<App />);
-        }
-    </script>
+            {/* Key Concepts */}
+            <div className="glass rounded-[32px] p-8">
+              <h4 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-4">ML Concepts Applied</h4>
+              <div className="space-y-3 text-xs text-slate-400">
+                <p><span className="text-purple-400 font-bold">Fitness Function:</span> Win rate determines survival - configs that win more games have higher fitness</p>
+                <p><span className="text-purple-400 font-bold">Mutation:</span> Small random weight changes (±15%) create genetic diversity</p>
+                <p><span className="text-purple-400 font-bold">Crossover:</span> Child configs inherit traits from two successful parents</p>
+                <p><span className="text-purple-400 font-bold">Elitism:</span> Top 2 performers pass unchanged to prevent losing good solutions</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const EngineArena = ({ config }) => {
+      const [isSimulating, setIsSimulating] = useState(false);
+      const [nodes, setNodes] = useState(0);
+      const [evalScore, setEvalScore] = useState(0.0);
+      const [logs, setLogs] = useState([]);
+      const logEndRef = useRef(null);
+
+      useEffect(() => {
+        logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, [logs]);
+
+      const addLog = (msg) => {
+        setLogs(prev => [...prev.slice(-15), msg]);
+      };
+
+      const startTest = () => {
+        setIsSimulating(true);
+        setLogs([]);
+        setNodes(0);
+        setEvalScore(0.0);
+
+        addLog("> UCI ok");
+        addLog("> position startpos moves e2e4 e7e5");
+
+        let n = 0;
+        const interval = setInterval(() => {
+          const increment = Math.floor(Math.random() * 50000);
+          n += increment;
+          setNodes(n);
+          setEvalScore(prev => prev + (Math.random() - 0.5) * 0.1);
+          if (Math.random() > 0.8) {
+            addLog(`info depth ${config.search_depth} nodes ${n} score cp ${Math.floor(evalScore * 100)} pv g1f3`);
+          }
+        }, 200);
+
+        setTimeout(() => {
+          clearInterval(interval);
+          setIsSimulating(false);
+          addLog("bestmove g1f3");
+        }, 4000);
+      };
+
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-7">
+            <div className="glass rounded-[48px] p-10 aspect-square flex flex-col items-center justify-center relative overflow-hidden bg-slate-900/40">
+              <div className="text-center space-y-8 relative z-10">
+                {isSimulating ? (
+                  <div className="flex flex-col items-center gap-6">
+                    <div className="relative">
+                      <div className="w-32 h-32 rounded-full border-4 border-indigo-500/10 border-t-indigo-500 animate-spin" />
+                      <span className="text-indigo-400 font-bold text-3xl">CPU</span>
+                    </div>
+                    <div className="mono text-4xl font-bold text-white tracking-tighter">{(nodes / 1000).toFixed(1)}k Nodes</div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500 font-bold">Search Horizon: Depth {config.search_depth}</p>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    <span className="text-slate-700 font-bold text-5xl mx-auto">⚔</span>
+                    <button
+                      onClick={startTest}
+                      className="px-12 py-5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-[24px] font-bold text-xl flex items-center gap-3 shadow-xl shadow-indigo-600/20 transition-all active:scale-95"
+                    >
+                      <span className="text-indigo-400 font-bold">▶</span> Start Simulation
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <div className="absolute right-10 top-1/2 -translate-y-1/2 w-4 h-[60%] bg-slate-950/80 rounded-full overflow-hidden border border-white/10 p-1">
+                <div
+                  style={{ height: `${50 + (evalScore * 10)}%` }}
+                  className={`w-full rounded-full transition-all duration-700 ${evalScore >= 0 ? 'bg-indigo-500' : 'bg-red-500'}`}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="lg:col-span-5 space-y-6">
+            <div className="glass rounded-[32px] p-8 h-[400px] flex flex-col bg-black/20">
+              <h3 className="font-bold text-sm uppercase tracking-widest mb-6 flex items-center gap-3 text-slate-400">
+                <span className="text-indigo-400">›</span> UCI Engine Output
+              </h3>
+              <div className="flex-1 overflow-y-auto space-y-1 mono text-[11px] text-slate-400 custom-scrollbar">
+                {logs.length === 0 && <div className="italic text-slate-600">Waiting for engine start...</div>}
+                {logs.map((log, i) => (
+                  <div key={i} className="flex gap-2">
+                    <span className="text-indigo-500 shrink-0 opacity-50">›</span>
+                    <span>{log}</span>
+                  </div>
+                ))}
+                <div ref={logEndRef} />
+              </div>
+            </div>
+
+            <div className="glass rounded-[32px] p-6 bg-indigo-500/5 border-indigo-500/10">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Live Evaluation</span>
+                <span className={`mono text-sm font-bold ${isSimulating ? 'text-indigo-400' : 'text-slate-600'}`}>
+                  {isSimulating ? (evalScore >= 0 ? '+' : '') + evalScore.toFixed(2) : '0.00'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // --- MAIN APP ---
+
+    const DEFAULT_CONFIG = {
+      name: "New Recruit",
+      piece_values: { pawn: 100, knight: 320, bishop: 330, rook: 500, queen: 900 },
+      mobility_weight: 10,
+      king_safety: 20,
+      search_depth: 4
+    };
+
+    const App = () => {
+      const [activeView, setActiveView] = useState('learn');
+      const [config, setConfig] = useState(DEFAULT_CONFIG);
+
+      return (
+        <div className="min-h-screen flex flex-col bg-[#020617] text-slate-100">
+          <nav className="glass sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-indigo-600 p-2 rounded-xl shadow-lg shadow-indigo-600/30">
+                <span className="text-white font-bold text-lg">CM</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-white">ChessMaster <span className="text-indigo-400">Architect</span></h1>
+                <p className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">AI Training Environment</p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 bg-slate-900/50 p-1 rounded-2xl border border-white/5">
+              <NavButton active={activeView === 'learn'} onClick={() => setActiveView('learn')} icon={<span>A</span>} label="Academy" />
+              <NavButton active={activeView === 'tune'} onClick={() => setActiveView('tune')} icon={<span>⚙</span>} label="Lab" />
+              <NavButton active={activeView === 'train'} onClick={() => setActiveView('train')} icon={<span>🧬</span>} label="Train" />
+              <NavButton active={activeView === 'arena'} onClick={() => setActiveView('arena')} icon={<span>▶</span>} label="Arena" />
+            </div>
+
+            <div className="hidden md:flex items-center gap-4">
+              <a href="https://github.com/IllI/chess_bot" target="_blank" className="text-slate-400 hover:text-white transition-colors">
+                <span className="font-mono text-sm">GH</span>
+              </a>
+              <div className="h-8 w-[1px] bg-white/10" />
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20">
+                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                <span className="text-[10px] font-bold text-green-500 uppercase">Engine Online</span>
+              </div>
+            </div>
+          </nav>
+
+          <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+            {activeView === 'learn' && <LearningCenter onContinue={() => setActiveView('tune')} />}
+            {activeView === 'tune' && <TuningLab config={config} setConfig={setConfig} />}
+            {activeView === 'train' && <TrainingLab config={config} setConfig={setConfig} />}
+            {activeView === 'arena' && <EngineArena config={config} />}
+          </main>
+
+          <footer className="py-6 px-8 border-t border-white/5 bg-slate-950/50 text-slate-500 text-xs flex justify-between">
+            <p> 2024 Chess Bot Instructional Platform</p>
+            <div className="flex gap-6">
+              <button className="hover:text-slate-300">Privacy</button>
+              <button className="hover:text-slate-300">Docs</button>
+              <button className="hover:text-slate-300">API Status</button>
+            </div>
+          </footer>
+        </div>
+      );
+    };
+
+    const NavButton = ({ active, onClick, icon, label }) => (
+      <button
+        onClick={onClick}
+        className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-all duration-300 ${active
+          ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-600/20'
+          : 'text-slate-400 hover:text-white hover:bg-white/5'
+          }`}
+      >
+        {icon}
+        <span className="text-sm font-semibold">{label}</span>
+      </button>
+    );
+
+    const rootElement = document.getElementById('root');
+    if (rootElement) {
+      const root = ReactDOM.createRoot(rootElement);
+      root.render(<App />);
+    }
+  </script>
 </body>
+
 </html>
