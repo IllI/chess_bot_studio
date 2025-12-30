@@ -2,11 +2,53 @@
 """Main entry point for Chess Bot Studio (self-contained in this folder)."""
 
 import argparse
+import subprocess
 import sys
 from analysis import setup_logging
 from custom_lichess_bot import LichessBotClient
 from multi_bot_cli import main as multi_bot_main
 from wizard import run_wizard
+
+
+def kill_processes_on_ports(*ports):
+    """Kill any processes listening on the specified ports (Windows only)."""
+    if sys.platform != 'win32':
+        return
+    
+    for port in ports:
+        try:
+            # Find PIDs listening on the port
+            result = subprocess.run(
+                ['netstat', '-ano'],
+                capture_output=True,
+                text=True,
+                creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+            )
+            
+            pids_to_kill = set()
+            for line in result.stdout.splitlines():
+                if f':{port}' in line and 'LISTENING' in line:
+                    parts = line.split()
+                    if parts:
+                        try:
+                            pid = int(parts[-1])
+                            if pid != 0:
+                                pids_to_kill.add(pid)
+                        except ValueError:
+                            pass
+            
+            # Kill each PID
+            for pid in pids_to_kill:
+                try:
+                    subprocess.run(
+                        ['taskkill', '/F', '/PID', str(pid)],
+                        capture_output=True,
+                        creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+                    )
+                except Exception:
+                    pass
+        except Exception:
+            pass
 
 
 def main():
@@ -60,6 +102,8 @@ def main():
         print("Analysis mode - coming soon!")
 
     elif args.mode == 'wizard':
+        # Kill any stale processes on our ports before starting
+        kill_processes_on_ports(5050, 8000)
         # Interactive launcher that starts UI, config API, and preferred bot
         run_wizard()
 

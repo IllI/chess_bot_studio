@@ -1,49 +1,103 @@
-# Visualization Components
+# Chess Bot Studio
 
-This directory contains visualization tools for the chess engine tuner.
+An interactive learning environment for understanding AI and machine learning concepts through chess engine tuning. Train, tune, and evolve your own chess bot configurations using evolutionary algorithms.
 
-## Components
+## Quick Start
 
-### Real-time Evaluation Plotting
-- `evaluation_plotter.py` - Real-time plotting of evaluation scores during games
-- `move_analysis_charts.py` - Charts showing how parameter changes affect move selection
-- `performance_dashboard.py` - Web dashboard for monitoring bot performance
+### Prerequisites
 
-### Educational Visualizations
-- `parameter_impact_viz.py` - Visual comparison of different parameter sets
-- `learning_progress_charts.py` - Progress tracking for students
-- `ml_analogy_diagrams.py` - Visual comparisons between traditional and ML approaches
+- Python 3.8+
+- pip (Python package manager)
+
+### Installation
+
+1. Clone or download this repository
+2. Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+### Running the Application
+
+Launch the full interactive experience with a single command:
+
+```bash
+python -B main.py --mode wizard
+```
+
+This starts:
+- **Web UI** at http://localhost:8000 - The main interface for training and tuning
+- **API Server** at http://localhost:5050 - Backend for configuration and training control
+
+Open http://localhost:8000 in your browser to begin.
 
 ## Features
 
-### Live Game Analysis
-- Real-time evaluation score plotting during games
-- Move-by-move analysis with parameter contribution breakdown
-- Interactive charts showing search tree exploration
+### Train Tab
+- **Evolutionary Training**: Watch configurations compete and evolve through self-play
+- **Live Game Visualization**: See games being played in real-time
+- **Parameter Guide**: Learn what each parameter does
 
-### Parameter Comparison
-- Side-by-side comparison of different configurations
-- A/B testing result visualization
-- Performance trend analysis over time
+### Lab Tab
+- **Parameter Tuning**: Adjust piece values, mobility weight, king safety, and search depth
+- **Save to Model**: Apply your tuned parameters to the active bot
 
-### Educational Tools
-- Visual explanation of how parameters affect evaluation
-- Interactive parameter tuning with immediate visual feedback
-- Comparison diagrams showing traditional vs. neural network approaches
+### Academy Tab
+- **Learning Resources**: Understand how chess engines evaluate positions
+- **ML Concepts**: See how traditional parameter tuning relates to machine learning
 
-## Usage
+## How It Works
 
-```python
-from visualization.evaluation_plotter import EvaluationPlotter
+Chess Bot Studio uses an **evolutionary algorithm** to discover optimal chess engine parameters:
 
-plotter = EvaluationPlotter()
-plotter.start_game_monitoring("game_id_123")
-# Evaluation scores will be plotted in real-time
+1. **Initialize**: Create a population of random parameter configurations
+2. **Evaluate**: Configurations play chess against each other
+3. **Select**: Best performers survive based on win rate
+4. **Reproduce**: Winners combine (crossover) and mutate to create the next generation
+5. **Repeat**: Each generation gets stronger
+
+This mirrors how neural networks learn - through iterative improvement based on performance feedback.
+
+## Other Run Modes
+
+```bash
+# Run a single bot on Lichess
+python main.py --mode bot --token YOUR_LICHESS_TOKEN
+
+# Multi-bot management CLI
+python main.py --mode multi-bot --help
+
+# Test mode (shows available options)
+python main.py --mode test
 ```
 
-## Dependencies
+## Project Structure
 
-- matplotlib for static plots
-- plotly for interactive visualizations
-- dash for web dashboard
-- numpy for data processing
+- `main.py` - Entry point for all modes
+- `wizard.py` - Wizard mode launcher (starts UI + API)
+- `config_api_server.py` - REST API for the web interface
+- `evolution.py` - Evolutionary optimization algorithm
+- `self_play.py` - Self-play engine for training games
+- `search.py` - Chess move search (minimax with alpha-beta)
+- `evaluation.py` - Position evaluation functions
+- `config.py` - Configuration management
+- `index.html` - Web UI (single-page React app)
+
+## Configuration
+
+User preferences are stored in `configs/user_profile.json`:
+
+```json
+{
+  "lichess_token": "your_token_here",
+  "preferred_bot_id": "aggressive_v1",
+  "strategy": "aggressive",
+  "ui_port": 8000,
+  "api_port": 5050
+}
+```
+
+## License
+
+MIT
