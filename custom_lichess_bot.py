@@ -463,31 +463,44 @@ class LichessBotClient:
             status = game_state.get('status')
             moves = game_state.get('moves', '')
             
+            logger.info(f"Status: {status}, Moves: '{moves}'")
+            
             # Always update the board with the latest moves first
             if hasattr(self, 'active_games') and game_id in self.active_games:
                 game_info = self.active_games[game_id]
                 moves_list = moves.split() if moves else []
                 
-                # Reconstruct board with all moves
+                # Reconstruct board from scratch with all moves from Lichess
+                # This ensures our board is always in sync with Lichess
                 board = chess.Board()
                 for move_str in moves_list:
                     try:
                         move = chess.Move.from_uci(move_str)
-                        board.push(move)
-                    except ValueError:
-                        logger.error(f"Invalid move: {move_str}")
+                        if move in board.legal_moves:
+                            board.push(move)
+                        else:
+                            logger.error(f"Move {move_str} not legal in position {board.fen()}")
+                    except ValueError as e:
+                        logger.error(f"Invalid move format: {move_str} - {e}")
                 
                 game_info['board'] = board
                 game_info['move_count'] = len(moves_list)
+                logger.info(f"[BoardSync] Reconstructed board: {board.fen()}")
+                logger.info(f"[BoardSync] {len(moves_list)} moves played, turn: {'white' if board.turn else 'black'}")
+            else:
+                logger.warning(f"Game {game_id} not in active_games!")
             
             if status in ['mate', 'resign', 'stalemate', 'timeout', 'draw', 'outoftime', 'aborted']:
                 self._handle_game_end(game_id, status)
             else:
                 # Game is ongoing, handle move if it's our turn
+                logger.info(f"Calling _handle_game_move for game {game_id}")
                 self._handle_game_move(game_id, game_state)
                 
         except Exception as e:
             logger.error(f"Error handling game state: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _handle_game_start(self, game_id: str, game_full_event: Dict[str, Any]) -> None:
         """
@@ -499,21 +512,37 @@ class LichessBotClient:
         """
         try:
             logger.info(f"Game {game_id} started")
+            logger.info(f"Game full event: {game_full_event}")
             
             # Extract game information
             white_player = game_full_event.get('white', {})
             black_player = game_full_event.get('black', {})
             
-            # Determine our color
-            our_username = self.get_account_info().get('username') if self.get_account_info() else None
+            logger.info(f"White player: {white_player}")
+            logger.info(f"Black player: {black_player}")
+            
+            # Determine our color - try multiple fields
+            account_info = self.get_account_info()
+            our_username = account_info.get('username') if account_info else None
+            our_id = account_info.get('id') if account_info else None
+            
+            logger.info(f"Our username: {our_username}, our id: {our_id}")
+            
             our_color = None
             
-            if white_player.get('name') == our_username:
+            # Check by name or id
+            white_name = white_player.get('name') or white_player.get('id')
+            black_name = black_player.get('name') or black_player.get('id')
+            
+            if white_name and (white_name == our_username or white_name == our_id):
                 our_color = 'white'
-            elif black_player.get('name') == our_username:
+            elif black_name and (black_name == our_username or black_name == our_id):
                 our_color = 'black'
             
             logger.info(f"Playing as {our_color} in game {game_id}")
+            
+            if our_color is None:
+                logger.error(f"Could not determine our color! white={white_name}, black={black_name}, us={our_username}")
             
             # Store game information for later use
             if not hasattr(self, 'active_games'):
@@ -528,7 +557,7 @@ class LichessBotClient:
                 'move_count': 0
             }
             
-            # Start neural network data collection
+            # Start neural network data collection (non-blocking)
             try:
                 from nn_trainer import get_nn_trainer
                 trainer = get_nn_trainer()
@@ -536,6 +565,37 @@ class LichessBotClient:
                 logger.info(f"[NNTrainer] Started collecting data for game {game_id}")
             except Exception as e:
                 logger.warning(f"Could not start NN data collection: {e}")
+            
+            # Try to enable neural evaluation if weights exist (non-blocking)
+            try:
+                from neural_network import NN_WEIGHTS_PATH
+                from search import set_neural_evaluation
+                from hybrid_evaluator import get_hybrid_evaluator
+                from pathlib import Path
+                
+                if NN_WEIGHTS_PATH.exists():
+                    evaluator = get_hybrid_evaluator()
+                    # Reload to get latest weights
+                    evaluator.reload_neural_network()
+                    if evaluator.neural_network is not None and evaluator.neural_network.positions_trained > 0:
+                        # Load saved neural config if exists
+                        neural_config_path = Path(__file__).parent / "configs" / "neural_config.json"
+                        if neural_config_path.exists():
+                            try:
+                                with open(neural_config_path, 'r') as f:
+                                    neural_config = json.load(f)
+                                saved_blend = neural_config.get('neural_blend', 0.5)
+                                evaluator.set_neural_blend(saved_blend)
+                                logger.info(f"[NeuralNet] Loaded saved blend: {saved_blend:.0%}")
+                            except Exception:
+                                evaluator.set_neural_blend(0.5)
+                        elif evaluator.neural_blend == 0:
+                            evaluator.set_neural_blend(0.5)
+                        
+                        set_neural_evaluation(True)
+                        logger.info(f"[NeuralNet] Using neural evaluation (v{evaluator.neural_network.version}, blend: {evaluator.neural_blend:.0%})")
+            except Exception as e:
+                logger.warning(f"Could not enable neural evaluation: {e}")
             
             # Start game logging
             if self.game_logger:
@@ -567,6 +627,8 @@ class LichessBotClient:
             game_state: Current game state
         """
         try:
+            logger.info(f"_handle_game_move called for game {game_id}")
+            
             if not hasattr(self, 'active_games') or game_id not in self.active_games:
                 logger.warning(f"Received move for unknown game {game_id}")
                 return
@@ -575,64 +637,24 @@ class LichessBotClient:
             board = game_info['board']
             our_color = game_info['color']
             
-            # Update board with moves
-            moves_str = game_state.get('moves', '')
-            moves_list = moves_str.split() if moves_str else []
-            
-            # Reconstruct board state and record moves for neural network
-            board = chess.Board()
-            prev_move_count = game_info.get('move_count', 0)
-            
-            for i, move_str in enumerate(moves_list):
-                try:
-                    # Record position before move for neural network training
-                    if i >= prev_move_count:
-                        try:
-                            from nn_trainer import get_nn_trainer
-                            trainer = get_nn_trainer()
-                            trainer.data_collector.record_move(
-                                game_id=game_id,
-                                fen=board.fen(),
-                                move_uci=move_str,
-                                move_number=i + 1
-                            )
-                        except Exception:
-                            pass  # Don't fail game on NN error
-                    
-                    move = chess.Move.from_uci(move_str)
-                    board.push(move)
-                except ValueError:
-                    logger.error(f"Invalid move: {move_str}")
-                    return
-            
-            game_info['board'] = board
-            game_info['move_count'] = len(moves_list)
-            
-            # Log evaluation breakdown for current position
-            if self.game_logger and len(moves_list) > 0:
-                try:
-                    evaluation_breakdown = get_evaluation_breakdown(board)
-                    self.game_logger.log_evaluation_breakdown(
-                        game_id=game_id,
-                        position_fen=board.fen(),
-                        evaluation_breakdown=evaluation_breakdown,
-                        move_number=board.fullmove_number
-                    )
-                except Exception as e:
-                    logger.warning(f"Error logging evaluation breakdown: {e}")
+            logger.info(f"Our color: {our_color}, Board turn: {'white' if board.turn else 'black'}")
             
             # Check if it's our turn
             is_our_turn = (board.turn == chess.WHITE and our_color == 'white') or \
                          (board.turn == chess.BLACK and our_color == 'black')
             
+            logger.info(f"Is our turn: {is_our_turn}, Game over: {board.is_game_over()}")
+            
             if is_our_turn and not board.is_game_over():
-                logger.info(f"It's our turn in game {game_id}")
+                logger.info(f"It's our turn in game {game_id}, making move...")
                 self._make_engine_move(game_id)
             else:
                 logger.info(f"Waiting for opponent's move in game {game_id}")
                 
         except Exception as e:
             logger.error(f"Error handling game move: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _handle_game_end(self, game_id: str, status: str) -> None:
         """
@@ -678,15 +700,61 @@ class LichessBotClient:
                     game_data = trainer.data_collector.finish_game(game_id, nn_outcome, source='lichess')
                     
                     if game_data and len(game_data.moves) > 0:
-                        # Train on this game immediately
+                        # Train on this game immediately using the new material-aware training
                         from neural_network import MoveRecord
-                        moves = [MoveRecord(**m) for m in game_data.moves]
-                        result = trainer.network.train_on_game(moves)
-                        trainer.network.save_weights()
-                        trainer.data_collector.save_training_data()
-                        logger.info(f"[NNTrainer] Trained on {len(moves)} positions, loss: {result['loss']:.6f}")
+                        moves = []
+                        for m in game_data.moves:
+                            try:
+                                # Handle both old and new format
+                                if 'fen_before' not in m and 'fen' in m:
+                                    m = {
+                                        'fen_before': m.get('fen', ''),
+                                        'fen_after': m.get('fen', ''),
+                                        'move_uci': m.get('move_uci', ''),
+                                        'material_change': 0.0,
+                                        'game_outcome': m.get('game_outcome', 0.5),
+                                        'move_number': m.get('move_number', 1),
+                                        'game_id': m.get('game_id', ''),
+                                        'is_capture': False,
+                                        'captured_piece_value': 0
+                                    }
+                                moves.append(MoveRecord(**m))
+                            except Exception as e:
+                                logger.warning(f"Skipping malformed move record: {e}")
+                                continue
+                        
+                        if moves:
+                            # CRITICAL: Learn MORE aggressively from losses
+                            # If we lost, we need to strongly punish the moves that led to the loss
+                            if outcome == 'loss':
+                                # Temporarily increase learning rate for losses
+                                original_lr = trainer.network.learning_rate
+                                trainer.network.learning_rate = min(0.05, original_lr * 3)  # 3x learning rate for losses
+                                logger.info(f"[NNTrainer] LOSS detected - using aggressive learning rate: {trainer.network.learning_rate}")
+                            
+                            result = trainer.network.train_on_game(moves)
+                            
+                            # Restore original learning rate
+                            if outcome == 'loss':
+                                trainer.network.learning_rate = original_lr
+                            
+                            trainer.network.save_weights()
+                            trainer.data_collector.save_training_data()
+                            logger.info(f"[NNTrainer] Trained on {len(moves)} positions from {outcome}, loss: {result['loss']:.6f}")
+                            
+                            # HOT-RELOAD: Update the hybrid evaluator with new weights
+                            # This ensures the next game uses the updated neural network
+                            try:
+                                from hybrid_evaluator import get_hybrid_evaluator
+                                evaluator = get_hybrid_evaluator()
+                                evaluator.reload_neural_network()
+                                logger.info(f"[NNTrainer] Hot-reloaded neural network (v{trainer.network.version})")
+                            except Exception as reload_err:
+                                logger.warning(f"Could not hot-reload neural network: {reload_err}")
                 except Exception as e:
                     logger.warning(f"Error with neural network training: {e}")
+                    import traceback
+                    traceback.print_exc()
                 
                 # Online learning - record game result
                 try:
@@ -738,7 +806,13 @@ class LichessBotClient:
                 return
             
             game_info = self.active_games[game_id]
-            board = game_info['board']
+            
+            # CRITICAL: Get a fresh copy of the board to avoid state issues
+            # The search engine modifies the board during search, so we need a copy
+            board = game_info['board'].copy()
+            
+            logger.info(f"[Engine] Board state: {board.fen()}")
+            logger.info(f"[Engine] Turn: {'white' if board.turn else 'black'}, Legal moves: {len(list(board.legal_moves))}")
             
             if board.is_game_over():
                 logger.info(f"Game {game_id} is over, no move needed")
@@ -819,18 +893,21 @@ class LichessBotClient:
             # Get time control information for move timing
             time_limit = self._get_move_time_limit(game_id)
             
+            logger.info(f"Finding best move with time_limit={time_limit}...")
+            
             # Use the chess engine to find the best move
             try:
                 best_move = self.search_engine.find_best_move(board, depth=None, time_limit=time_limit, game_id=game_id)
+                
+                logger.info(f"Engine returned move: {best_move}")
                 
                 if best_move and best_move in board.legal_moves:
                     logger.info(f"Engine selected move: {best_move.uci()}")
                     
                     # Submit the move to Lichess
                     if self.make_move(game_id, best_move):
-                        # Update our local board state
-                        board.push(best_move)
-                        game_info['board'] = board
+                        # Update our local board state (the original, not the copy)
+                        game_info['board'].push(best_move)
                         
                         # Log the move
                         if self.game_logger:
@@ -840,17 +917,21 @@ class LichessBotClient:
                     else:
                         logger.error(f"Failed to submit move {best_move.uci()}")
                 else:
-                    logger.error("Engine returned invalid move")
+                    logger.error(f"Engine returned invalid move: {best_move}, legal moves: {[m.uci() for m in board.legal_moves][:10]}")
                     # Fallback: make a random legal move
                     self._make_random_move(game_id)
                     
             except Exception as e:
                 logger.error(f"Engine error: {e}")
+                import traceback
+                traceback.print_exc()
                 # Fallback: make a random legal move
                 self._make_random_move(game_id)
                 
         except Exception as e:
             logger.error(f"Error making engine move: {e}")
+            import traceback
+            traceback.print_exc()
     
     def _get_move_time_limit(self, game_id: str) -> float:
         """
@@ -893,18 +974,29 @@ class LichessBotClient:
             game_info = self.active_games[game_id]
             board = game_info['board']
             
+            logger.info(f"[RandomMove] Board state: {board.fen()}")
+            
             legal_moves = list(board.legal_moves)
+            logger.info(f"[RandomMove] Legal moves: {[m.uci() for m in legal_moves][:10]}...")
+            
             if legal_moves:
                 import random
                 random_move = random.choice(legal_moves)
                 logger.warning(f"Making random move as fallback: {random_move.uci()}")
                 
                 if self.make_move(game_id, random_move):
-                    board.push(random_move)
-                    game_info['board'] = board
+                    # Update the original board in game_info
+                    game_info['board'].push(random_move)
+                    logger.info(f"Random move {random_move.uci()} played successfully")
+                else:
+                    logger.error(f"Failed to submit random move {random_move.uci()}")
+            else:
+                logger.error(f"No legal moves available for random fallback!")
                     
         except Exception as e:
             logger.error(f"Error making random move: {e}")
+            import traceback
+            traceback.print_exc()
     
     def make_move(self, game_id: str, move: chess.Move) -> bool:
         """

@@ -6,6 +6,8 @@ Handles:
 - Training the neural network on collected data
 - Self-play for generating training positions
 - Hot-reloading weights for live bot updates
+
+Key improvement: Now tracks material changes per move for immediate feedback learning.
 """
 
 import json
@@ -18,7 +20,7 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 import chess
 
-from neural_network import ChessNeuralNetwork, MoveRecord, NN_TRAINING_DATA_PATH
+from neural_network import ChessNeuralNetwork, MoveRecord, NN_TRAINING_DATA_PATH, PIECE_VALUES
 
 
 @dataclass
@@ -31,12 +33,67 @@ class GameTrainingData:
     timestamp: str
 
 
+def calculate_material(board: chess.Board, color: chess.Color) -> int:
+    """Calculate total material for a color."""
+    total = 0
+    for piece_type in [chess.PAWN, chess.KNIGHT, chess.BISHOP, chess.ROOK, chess.QUEEN]:
+        total += len(board.pieces(piece_type, color)) * PIECE_VALUES.get(piece_type, 0)
+    return total
+
+
+def get_material_change(board_before: chess.Board, board_after: chess.Board, 
+                        move: chess.Move, moving_color: chess.Color) -> tuple:
+    """
+    Calculate material change from a move.
+    
+    Returns:
+        (material_change, is_capture, captured_piece_value)
+        material_change is positive if the moving side gained material
+    """
+    is_capture = board_before.is_capture(move)
+    captured_piece_value = 0
+    
+    if is_capture:
+        # Get the captured piece
+        captured_square = move.to_square
+        
+        # Handle en passant
+        if board_before.is_en_passant(move):
+            captured_piece_value = PIECE_VALUES[chess.PAWN]
+        else:
+            captured_piece = board_before.piece_at(captured_square)
+            if captured_piece:
+                captured_piece_value = PIECE_VALUES.get(captured_piece.piece_type, 0)
+    
+    # Calculate material before and after
+    our_material_before = calculate_material(board_before, moving_color)
+    opp_material_before = calculate_material(board_before, not moving_color)
+    
+    our_material_after = calculate_material(board_after, moving_color)
+    opp_material_after = calculate_material(board_after, not moving_color)
+    
+    # Material change = (our gain) - (their gain)
+    # Positive means we gained material relative to opponent
+    our_change = our_material_after - our_material_before
+    opp_change = opp_material_after - opp_material_before
+    
+    # Handle promotions
+    if move.promotion:
+        promotion_value = PIECE_VALUES.get(move.promotion, 0) - PIECE_VALUES[chess.PAWN]
+        our_change += promotion_value
+    
+    material_change = our_change - opp_change
+    
+    return material_change, is_capture, captured_piece_value
+
+
 class NeuralTrainingDataCollector:
     """
     Collects training data from games for neural network training.
     
-    Tracks every position and move, then labels them with game outcome
-    for supervised learning.
+    Now tracks material changes per move for immediate feedback learning.
+    This allows the network to learn that losing a queen for a pawn is bad
+    IMMEDIATELY, not just based on game outcome.
     """
     
     def __init__(self):
@@ -53,18 +110,55 @@ class NeuralTrainingDataCollector:
             self.current_games[game_id] = []
             print(f"[NNTrainer] Started tracking game {game_id}")
     
-    def record_move(self, game_id: str, fen: str, move_uci: str, move_number: int) -> None:
-        """Record a move for training."""
+    def record_move(self, game_id: str, fen_before: str, move_uci: str, move_number: int,
+                    fen_after: str = None, material_change: float = 0.0,
+                    is_capture: bool = False, captured_piece_value: int = 0) -> None:
+        """
+        Record a move for training with material tracking.
+        
+        Args:
+            game_id: Game identifier
+            fen_before: FEN before the move
+            move_uci: Move in UCI format
+            move_number: Move number in game
+            fen_after: FEN after the move (calculated if not provided)
+            material_change: Material gained/lost (calculated if not provided)
+            is_capture: Whether move was a capture
+            captured_piece_value: Value of captured piece
+        """
         with self.lock:
             if game_id not in self.current_games:
                 self.current_games[game_id] = []
             
+            # Calculate fen_after and material_change if not provided
+            if fen_after is None or material_change == 0.0:
+                try:
+                    board_before = chess.Board(fen_before)
+                    move = chess.Move.from_uci(move_uci)
+                    moving_color = board_before.turn
+                    
+                    board_after = board_before.copy()
+                    board_after.push(move)
+                    fen_after = board_after.fen()
+                    
+                    material_change, is_capture, captured_piece_value = get_material_change(
+                        board_before, board_after, move, moving_color
+                    )
+                except Exception as e:
+                    print(f"[NNTrainer] Error calculating material change: {e}")
+                    fen_after = fen_before
+                    material_change = 0.0
+            
             record = MoveRecord(
-                fen=fen,
+                fen_before=fen_before,
+                fen_after=fen_after,
                 move_uci=move_uci,
+                material_change=material_change,
                 game_outcome=0.5,  # Will be updated when game ends
                 move_number=move_number,
-                game_id=game_id
+                game_id=game_id,
+                is_capture=is_capture,
+                captured_piece_value=captured_piece_value
             )
             self.current_games[game_id].append(record)
     
@@ -98,8 +192,23 @@ class NeuralTrainingDataCollector:
                 outcome_value = 0.5
             
             # Label all positions with the game outcome
+            # Also adjust based on which side made the move
             for move in moves:
-                move.game_outcome = outcome_value
+                # Determine which side made this move
+                try:
+                    board = chess.Board(move.fen_before)
+                    moving_side_is_white = board.turn == chess.WHITE
+                    
+                    # If white won and white made this move, outcome is good (1.0)
+                    # If white won and black made this move, outcome is bad (0.0)
+                    if outcome == 'white_win':
+                        move.game_outcome = 1.0 if moving_side_is_white else 0.0
+                    elif outcome == 'black_win':
+                        move.game_outcome = 0.0 if moving_side_is_white else 1.0
+                    else:
+                        move.game_outcome = 0.5
+                except:
+                    move.game_outcome = outcome_value
             
             # Create game training data
             game_data = GameTrainingData(
@@ -123,7 +232,24 @@ class NeuralTrainingDataCollector:
         with self.lock:
             for game in self.completed_games:
                 for move_dict in game.moves:
-                    all_moves.append(MoveRecord(**move_dict))
+                    try:
+                        # Handle both old and new format
+                        if 'fen_before' not in move_dict and 'fen' in move_dict:
+                            # Convert old format to new format
+                            move_dict = {
+                                'fen_before': move_dict.get('fen', ''),
+                                'fen_after': move_dict.get('fen', ''),
+                                'move_uci': move_dict.get('move_uci', ''),
+                                'material_change': 0.0,
+                                'game_outcome': move_dict.get('game_outcome', 0.5),
+                                'move_number': move_dict.get('move_number', 1),
+                                'game_id': move_dict.get('game_id', ''),
+                                'is_capture': False,
+                                'captured_piece_value': 0
+                            }
+                        all_moves.append(MoveRecord(**move_dict))
+                    except Exception as e:
+                        continue  # Skip malformed records
         
         if len(all_moves) <= batch_size:
             return all_moves
@@ -250,7 +376,10 @@ class NeuralNetworkTrainer:
         self.self_play_games_target = self_play_games if include_self_play else 0
         self.current_phase = 'starting'
         
+        # Set is_training BEFORE starting thread to avoid race condition
         self.is_training = True
+        
+        print(f"[NNTrainer] Starting training session {self.session_id}")
         
         self.training_thread = threading.Thread(
             target=self._training_loop,
@@ -327,12 +456,16 @@ class NeuralNetworkTrainer:
             print(f"[NNTrainer] Training error: {e}")
             import traceback
             traceback.print_exc()
+            self.current_phase = 'error'
         finally:
             self.is_training = False
-            self.current_phase = 'idle'
+            self.self_play_in_progress = False
+            # Only set to idle if not in error state
+            if self.current_phase != 'error':
+                self.current_phase = 'idle'
     
     def _train_epoch(self, batch_size: int) -> float:
-        """Train for one epoch."""
+        """Train for one epoch using material-aware training."""
         batch = self.data_collector.get_training_batch(batch_size)
         
         if not batch:
@@ -341,8 +474,15 @@ class NeuralNetworkTrainer:
         total_loss = 0.0
         for move_record in batch:
             try:
-                board = chess.Board(move_record.fen)
-                loss = self.network.train_on_position(board, move_record.game_outcome)
+                # Use the new train_on_move method that considers material changes
+                loss = self.network.train_on_move(
+                    fen_before=move_record.fen_before,
+                    fen_after=move_record.fen_after,
+                    material_change=move_record.material_change,
+                    game_outcome=move_record.game_outcome,
+                    is_capture=move_record.is_capture,
+                    move_number=move_record.move_number
+                )
                 total_loss += loss
             except Exception as e:
                 continue
@@ -350,9 +490,18 @@ class NeuralNetworkTrainer:
         return total_loss / max(1, len(batch))
     
     def _generate_self_play_games(self, num_games: int) -> None:
-        """Generate self-play games for training data."""
-        from search import ChessSearchEngine
-        from config import ChessConfig
+        """Generate self-play games for training data with material tracking."""
+        try:
+            from search import ChessSearchEngine, set_neural_evaluation
+            from config import ChessConfig
+            
+            # Disable neural evaluation during self-play to avoid conflicts
+            # Self-play should use pure heuristic evaluation for speed and stability
+            set_neural_evaluation(False)
+            
+        except ImportError as e:
+            print(f"[NNTrainer] Import error in self-play: {e}")
+            raise
         
         config = ChessConfig("self_play")
         engine = ChessSearchEngine(config)
@@ -364,64 +513,99 @@ class NeuralNetworkTrainer:
             if self.stop_training:
                 break
             
-            game_id = f"selfplay_{int(time.time())}_{game_num}"
-            self.data_collector.start_game(game_id)
-            
-            board = chess.Board()
-            move_count = 0
-            max_moves = 100
-            last_move = None
-            
-            # Initialize current game for live preview
-            self.current_game = {
-                'game_id': game_id,
-                'game_number': game_num + 1,
-                'total_games': num_games,
-                'fen': board.fen(),
-                'move_count': 0,
-                'white_id': f'NN_White_{game_num}',
-                'black_id': f'NN_Black_{game_num}',
-                'last_move': None
-            }
-            
-            while not board.is_game_over() and move_count < max_moves:
-                # Record position before move
-                fen = board.fen()
+            try:
+                game_id = f"selfplay_{int(time.time())}_{game_num}"
+                self.data_collector.start_game(game_id)
                 
-                # Get move from engine (with some randomness for variety)
-                move = engine.find_best_move(board, depth=2)
+                board = chess.Board()
+                move_count = 0
+                max_moves = 100
+                last_move = None
                 
-                if move is None:
-                    break
-                
-                self.data_collector.record_move(game_id, fen, move.uci(), move_count + 1)
-                board.push(move)
-                move_count += 1
-                last_move = move.uci()
-                
-                # Update current game state for live preview
+                # Initialize current game for live preview
                 self.current_game = {
                     'game_id': game_id,
                     'game_number': game_num + 1,
                     'total_games': num_games,
                     'fen': board.fen(),
-                    'move_count': move_count,
+                    'move_count': 0,
                     'white_id': f'NN_White_{game_num}',
                     'black_id': f'NN_Black_{game_num}',
-                    'last_move': last_move
+                    'last_move': None
                 }
-            
-            # Determine outcome
-            if board.is_checkmate():
-                outcome = 'black_win' if board.turn == chess.WHITE else 'white_win'
-            else:
-                outcome = 'draw'
-            
-            self.data_collector.finish_game(game_id, outcome, source='self_play')
-            self.self_play_games_completed = game_num + 1
-            
-            if (game_num + 1) % 10 == 0:
-                print(f"[NNTrainer] Generated {game_num + 1}/{num_games} self-play games")
+                
+                while not board.is_game_over() and move_count < max_moves:
+                    # Record position before move
+                    fen_before = board.fen()
+                    moving_color = board.turn
+                    
+                    # Get move from engine (with some randomness for variety)
+                    # Add randomness in early moves for diverse training data
+                    if move_count < 10 and random.random() < 0.3:
+                        legal_moves = list(board.legal_moves)
+                        move = random.choice(legal_moves)
+                    else:
+                        move = engine.find_best_move(board, depth=2)
+                    
+                    if move is None:
+                        break
+                    
+                    # Calculate material change BEFORE making the move
+                    board_before = board.copy()
+                    board.push(move)
+                    fen_after = board.fen()
+                    
+                    material_change, is_capture, captured_value = get_material_change(
+                        board_before, board, move, moving_color
+                    )
+                    
+                    # Record move with material information
+                    self.data_collector.record_move(
+                        game_id=game_id,
+                        fen_before=fen_before,
+                        move_uci=move.uci(),
+                        move_number=move_count + 1,
+                        fen_after=fen_after,
+                        material_change=material_change,
+                        is_capture=is_capture,
+                        captured_piece_value=captured_value
+                    )
+                    
+                    move_count += 1
+                    last_move = move.uci()
+                    
+                    # Update current game state for live preview
+                    self.current_game = {
+                        'game_id': game_id,
+                        'game_number': game_num + 1,
+                        'total_games': num_games,
+                        'fen': board.fen(),
+                        'move_count': move_count,
+                        'white_id': f'NN_White_{game_num}',
+                        'black_id': f'NN_Black_{game_num}',
+                        'last_move': last_move,
+                        'material_white': calculate_material(board, chess.WHITE),
+                        'material_black': calculate_material(board, chess.BLACK)
+                    }
+                
+                # Determine outcome
+                if board.is_checkmate():
+                    outcome = 'black_win' if board.turn == chess.WHITE else 'white_win'
+                else:
+                    outcome = 'draw'
+                
+                self.data_collector.finish_game(game_id, outcome, source='self_play')
+                self.self_play_games_completed = game_num + 1
+                
+                if (game_num + 1) % 10 == 0:
+                    print(f"[NNTrainer] Generated {game_num + 1}/{num_games} self-play games")
+                    
+            except Exception as e:
+                print(f"[NNTrainer] Error in game {game_num}: {e}")
+                import traceback
+                traceback.print_exc()
+                # Continue with next game instead of crashing
+                continue
         
         # Clear current game when done
         self.current_game = None

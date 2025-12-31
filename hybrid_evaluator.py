@@ -59,8 +59,21 @@ class HybridEvaluator:
             return False
     
     def reload_neural_network(self) -> bool:
-        """Reload the neural network (for hot-reload after training)."""
-        return self._load_neural_network()
+        """Reload the neural network weights from disk (for hot-reload after training)."""
+        try:
+            from neural_network import ChessNeuralNetwork, NN_WEIGHTS_PATH
+            
+            if NN_WEIGHTS_PATH.exists():
+                # Create a fresh instance that loads from disk
+                self.neural_network = ChessNeuralNetwork()
+                print(f"[HybridEval] Hot-reloaded neural network (v{self.neural_network.version}, {self.neural_network.positions_trained} positions)")
+                return True
+            else:
+                print("[HybridEval] No neural network weights found")
+                return False
+        except Exception as e:
+            print(f"[HybridEval] Error reloading neural network: {e}")
+            return False
     
     def evaluate(self, board: chess.Board) -> float:
         """
@@ -82,8 +95,8 @@ class HybridEvaluator:
         
         # Get neural network evaluation
         try:
-            # Neural network returns -1 to 1, scale to centipawn range
-            neural_eval = self.neural_network.evaluate(board) * 1000  # Scale to ~centipawns
+            # Neural network evaluate() already returns centipawn-like range
+            neural_eval = self.neural_network.evaluate(board)
             
             # Blend the evaluations
             blended_eval = (1 - self.neural_blend) * heuristic_eval + self.neural_blend * neural_eval
@@ -121,6 +134,18 @@ def get_hybrid_evaluator(config: Optional[ChessConfig] = None) -> HybridEvaluato
     if _hybrid_evaluator is None:
         _hybrid_evaluator = HybridEvaluator(config)
     return _hybrid_evaluator
+
+
+def set_neural_blend(blend: float) -> None:
+    """Set the neural network blend ratio globally."""
+    evaluator = get_hybrid_evaluator()
+    evaluator.set_neural_blend(blend)
+
+
+def reload_neural_network() -> bool:
+    """Reload the neural network weights (for hot-reload after training)."""
+    evaluator = get_hybrid_evaluator()
+    return evaluator.reload_neural_network()
 
 
 def hybrid_evaluate(board: chess.Board, config: Optional[ChessConfig] = None) -> float:

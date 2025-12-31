@@ -970,6 +970,9 @@
       const [lastSelfPlayCount, setLastSelfPlayCount] = useState(0);
       const [lastEpoch, setLastEpoch] = useState(0);
       
+      // Track when training was started to prevent premature reset
+      const [trainingStartTime, setTrainingStartTime] = useState(null);
+      
       useEffect(() => {
         const interval = setInterval(() => {
           fetch('http://localhost:5050/api/neural/status')
@@ -987,6 +990,12 @@
                     addLog('📚 Starting neural network training...');
                   } else if (data.current_phase === 'complete') {
                     addLog('✅ Training complete!');
+                    setIsTraining(false);
+                    setTrainingStartTime(null);
+                  } else if (data.current_phase === 'error') {
+                    addLog('❌ Training error occurred - check console');
+                    setIsTraining(false);
+                    setTrainingStartTime(null);
                   }
                 }
                 
@@ -1004,8 +1013,25 @@
                   setLastEpoch(data.epochs_completed);
                 }
                 
-                if (data.is_training !== isTraining) {
-                  setIsTraining(data.is_training);
+                // Handle training state changes with grace period
+                // Don't reset isTraining to false within 5 seconds of starting
+                const timeSinceStart = trainingStartTime ? (Date.now() - trainingStartTime) : Infinity;
+                const gracePeriodMs = 5000;
+                
+                if (data.current_phase === 'complete' || data.current_phase === 'error') {
+                  setIsTraining(false);
+                  setTrainingStartTime(null);
+                } else if (data.is_training && !isTraining) {
+                  // Training started externally
+                  setIsTraining(true);
+                  setTrainingStartTime(Date.now());
+                } else if (!data.is_training && isTraining && timeSinceStart > gracePeriodMs) {
+                  // Only reset if grace period has passed
+                  setIsTraining(false);
+                  setTrainingStartTime(null);
+                  if (data.current_phase === 'idle') {
+                    addLog('⚠️ Training stopped unexpectedly');
+                  }
                 }
               }
             })
@@ -1013,7 +1039,7 @@
         }, 1000);  // Poll every second for more responsive updates
 
         return () => clearInterval(interval);
-      }, [isTraining, lastPhase, lastSelfPlayCount, lastEpoch]);
+      }, [isTraining, lastPhase, lastSelfPlayCount, lastEpoch, trainingStartTime]);
 
       const addLog = (msg) => {
         const timestamp = new Date().toLocaleTimeString();
@@ -1023,6 +1049,7 @@
       const startTraining = async () => {
         addLog('Starting neural network training...');
         setIsTraining(true);
+        setTrainingStartTime(Date.now());  // Set start time for grace period
         setNetworkSaved(false);  // Reset save state when starting new training
 
         try {
@@ -1048,10 +1075,12 @@
           } else {
             addLog(`❌ Error: ${data.error}`);
             setIsTraining(false);
+            setTrainingStartTime(null);
           }
         } catch (e) {
           addLog(`❌ Connection error: ${e.message}`);
           setIsTraining(false);
+          setTrainingStartTime(null);
         }
       };
 
@@ -1478,20 +1507,20 @@
               </div>
               <div className="space-y-4 text-sm text-slate-300">
                 <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
-                  <div className="font-bold text-purple-400 mb-1">Input Layer (768 neurons)</div>
-                  <p className="text-xs text-slate-400">Each square × each piece type = 768 inputs. The network "sees" the board as a pattern of 1s and 0s.</p>
+                  <div className="font-bold text-purple-400 mb-1">Input Layer (833 features)</div>
+                  <p className="text-xs text-slate-400">768 piece positions + material balance + piece counts + mobility + king safety. The network "sees" rich position features.</p>
                 </div>
                 <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
-                  <div className="font-bold text-purple-400 mb-1">Hidden Layers (256 → 64)</div>
-                  <p className="text-xs text-slate-400">These layers learn patterns: piece coordination, pawn structure, king safety. Each neuron detects a specific feature.</p>
+                  <div className="font-bold text-purple-400 mb-1">Hidden Layers (512 → 128 → 32)</div>
+                  <p className="text-xs text-slate-400">Three layers learn patterns: piece coordination, pawn structure, king safety. Each neuron detects a specific feature.</p>
                 </div>
                 <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
                   <div className="font-bold text-purple-400 mb-1">Output (1 neuron)</div>
                   <p className="text-xs text-slate-400">A single value from -1 to +1. Positive = white advantage, negative = black advantage.</p>
                 </div>
                 <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
-                  <div className="font-bold text-purple-400 mb-1">Learning Process</div>
-                  <p className="text-xs text-slate-400">After each game, we label every position with the outcome. The network adjusts weights to predict winners better.</p>
+                  <div className="font-bold text-purple-400 mb-1">Material-Aware Learning</div>
+                  <p className="text-xs text-slate-400">Bad trades (queen for pawn) are punished immediately, not just based on game outcome. This teaches the network piece values fast.</p>
                 </div>
               </div>
             </div>

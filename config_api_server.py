@@ -396,8 +396,13 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
 
     def _get_neural_status(self) -> None:
         """Return neural network training status."""
-        from nn_trainer import get_nn_trainer
+        from nn_trainer import get_nn_trainer, _nn_trainer
         trainer = get_nn_trainer()
+        
+        # Debug: check if trainer instance is the same
+        if _nn_trainer is not trainer:
+            print(f"[DEBUG] WARNING: Trainer instance mismatch!")
+        
         status = trainer.get_status()
         self._send_json({"ok": True, **status})
 
@@ -471,6 +476,8 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
         from nn_trainer import get_nn_trainer
         from hybrid_evaluator import get_hybrid_evaluator
         from search import set_neural_evaluation
+        from pathlib import Path
+        import json
         
         body = self._read_json_body()
         neural_blend = body.get('neural_blend', 0.5)
@@ -480,6 +487,16 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
         # Save the network weights
         trainer.network.save_weights()
         trainer.data_collector.save_training_data()
+        
+        # Save the neural blend setting for persistence
+        neural_config_path = Path(__file__).parent / "configs" / "neural_config.json"
+        neural_config_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(neural_config_path, 'w') as f:
+            json.dump({
+                'neural_blend': neural_blend,
+                'enabled': True,
+                'version': trainer.network.version
+            }, f)
         
         # Update the hybrid evaluator blend
         evaluator = get_hybrid_evaluator()

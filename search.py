@@ -36,6 +36,7 @@ def set_neural_evaluation(enabled: bool) -> None:
         except Exception as e:
             logger.warning(f"[Search] Could not enable neural evaluation: {e}")
             _use_neural_evaluation = False
+            _neural_evaluator = None
     else:
         _neural_evaluator = None
         logger.info("[Search] Neural evaluation disabled")
@@ -51,7 +52,17 @@ def get_evaluation(board: chess.Board, config: Optional[Dict] = None) -> float:
     
     if _use_neural_evaluation and _neural_evaluator is not None:
         try:
-            return _neural_evaluator.evaluate(board)
+            eval_score = _neural_evaluator.evaluate(board)
+            # Log occasionally to show neural eval is being used
+            if hasattr(get_evaluation, '_call_count'):
+                get_evaluation._call_count += 1
+            else:
+                get_evaluation._call_count = 1
+            
+            if get_evaluation._call_count % 1000 == 1:
+                logger.debug(f"[NeuralEval] Using neural evaluation (blend: {_neural_evaluator.neural_blend:.0%})")
+            
+            return eval_score
         except Exception as e:
             logger.warning(f"Neural evaluation failed, using heuristic: {e}")
     
@@ -153,6 +164,8 @@ class ChessSearchEngine:
         import random
         legal_moves = list(board.legal_moves)
         
+        self.logger.info(f"[FixedDepth] Starting search, board: {board.fen()}, legal moves: {len(legal_moves)}")
+        
         # Order moves for better alpha-beta pruning
         ordered_moves = self._order_moves(board, legal_moves)
         
@@ -166,6 +179,11 @@ class ChessSearchEngine:
                 self.search_cancelled = True
                 self.logger.warning("Search cancelled due to time limit")
                 break
+            
+            # SAFETY: Verify move is still legal before pushing
+            if move not in board.legal_moves:
+                self.logger.warning(f"[FixedDepth] Skipping illegal move {move} in position {board.fen()}")
+                continue
             
             # Make the move
             board.push(move)
@@ -237,8 +255,8 @@ class ChessSearchEngine:
         # Reserve some time for move execution and network latency
         search_time_limit = time_limit * 0.9  # Use 90% of available time
         
-        self.logger.info(f"Starting iterative deepening: max_depth={max_depth}, "
-                        f"time_limit={time_limit:.3f}s, search_limit={search_time_limit:.3f}s")
+        self.logger.info(f"[IterDeep] Starting search, board: {board.fen()}, legal moves: {len(legal_moves)}")
+        self.logger.info(f"[IterDeep] max_depth={max_depth}, time_limit={time_limit:.3f}s")
         
         # Iterative deepening loop
         for current_depth in range(1, max_depth + 1):
@@ -275,6 +293,11 @@ class ChessSearchEngine:
                     depth_cancelled = True
                     self.logger.debug(f"Time limit reached during depth {current_depth}")
                     break
+                
+                # SAFETY: Verify move is still legal before pushing
+                if move not in board.legal_moves:
+                    self.logger.warning(f"[IterDeep] Skipping illegal move {move} in position {board.fen()}")
+                    continue
                 
                 # Make the move
                 board.push(move)
@@ -374,6 +397,10 @@ class ChessSearchEngine:
         if maximizing_player:
             max_eval = float('-inf')
             for move in ordered_moves:
+                # SAFETY: Verify move is legal before pushing
+                if move not in board.legal_moves:
+                    continue
+                    
                 board.push(move)
                 eval_score = self._minimax(board, depth - 1, alpha, beta, False, start_time, time_limit)
                 board.pop()
@@ -394,6 +421,10 @@ class ChessSearchEngine:
         else:
             min_eval = float('inf')
             for move in ordered_moves:
+                # SAFETY: Verify move is legal before pushing
+                if move not in board.legal_moves:
+                    continue
+                    
                 board.push(move)
                 eval_score = self._minimax(board, depth - 1, alpha, beta, True, start_time, time_limit)
                 board.pop()
@@ -455,50 +486,57 @@ class ChessSearchEngine:
             secondary = 0
             tertiary = 0
             
-            # Get piece values for calculations
-            piece_values = self.config.get_parameter('piece_values')
-            
-            # Check if move is a capture
-            if board.is_capture(move):
-                captured_piece = board.piece_at(move.to_square)
-                moving_piece = board.piece_at(move.from_square)
+            try:
+                # Get piece values for calculations
+                piece_values = self.config.get_parameter('piece_values')
                 
-                if captured_piece and moving_piece:
-                    # MVV-LVA: Most Valuable Victim - Least Valuable Attacker
-                    victim_value = self._get_piece_value(captured_piece.piece_type, piece_values)
-                    attacker_value = self._get_piece_value(moving_piece.piece_type, piece_values)
+                # Check if move is a capture
+                if board.is_capture(move):
+                    captured_piece = board.piece_at(move.to_square)
+                    moving_piece = board.piece_at(move.from_square)
                     
-                    priority = 1000  # High priority for captures
-                    secondary = victim_value  # Prefer capturing valuable pieces
-                    tertiary = -attacker_value  # Prefer using less valuable pieces
+                    if captured_piece and moving_piece:
+                        # MVV-LVA: Most Valuable Victim - Least Valuable Attacker
+                        victim_value = self._get_piece_value(captured_piece.piece_type, piece_values)
+                        attacker_value = self._get_piece_value(moving_piece.piece_type, piece_values)
+                        
+                        priority = 1000  # High priority for captures
+                        secondary = victim_value  # Prefer capturing valuable pieces
+                        tertiary = -attacker_value  # Prefer using less valuable pieces
+                        self.stats.move_ordering_hits += 1
+                        return (priority, secondary, tertiary)
+                
+                # Check for checks - only if move is legal
+                if move in board.legal_moves:
+                    board.push(move)
+                    try:
+                        if board.is_check():
+                            priority = 900  # High priority for checks
+                            self.stats.move_ordering_hits += 1
+                    finally:
+                        board.pop()
+                
+                # Check for castling
+                if board.is_castling(move):
+                    priority = max(priority, 800)  # High priority for castling
                     self.stats.move_ordering_hits += 1
-                    return (priority, secondary, tertiary)
-            
-            # Check for checks
-            board.push(move)
-            if board.is_check():
-                priority = 900  # High priority for checks
-                self.stats.move_ordering_hits += 1
-            board.pop()
-            
-            # Check for castling
-            if board.is_castling(move):
-                priority = max(priority, 800)  # High priority for castling
-                self.stats.move_ordering_hits += 1
-            
-            # Check for promotions
-            if move.promotion:
-                promotion_value = self._get_piece_value(move.promotion, piece_values)
-                priority = max(priority, 700)  # High priority for promotions
-                secondary = max(secondary, promotion_value)  # Prefer queen promotions
-                self.stats.move_ordering_hits += 1
-            
-            # For other moves, order by piece value (move valuable pieces first)
-            if priority == 0:
-                moving_piece = board.piece_at(move.from_square)
-                if moving_piece:
-                    piece_value = self._get_piece_value(moving_piece.piece_type, piece_values)
-                    secondary = piece_value
+                
+                # Check for promotions
+                if move.promotion:
+                    promotion_value = self._get_piece_value(move.promotion, piece_values)
+                    priority = max(priority, 700)  # High priority for promotions
+                    secondary = max(secondary, promotion_value)  # Prefer queen promotions
+                    self.stats.move_ordering_hits += 1
+                
+                # For other moves, order by piece value (move valuable pieces first)
+                if priority == 0:
+                    moving_piece = board.piece_at(move.from_square)
+                    if moving_piece:
+                        piece_value = self._get_piece_value(moving_piece.piece_type, piece_values)
+                        secondary = piece_value
+            except Exception as e:
+                # If anything goes wrong, just return default priority
+                self.logger.debug(f"Error in move_priority for {move}: {e}")
             
             return (priority, secondary, tertiary)
         
