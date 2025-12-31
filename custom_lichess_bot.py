@@ -528,6 +528,15 @@ class LichessBotClient:
                 'move_count': 0
             }
             
+            # Start neural network data collection
+            try:
+                from nn_trainer import get_nn_trainer
+                trainer = get_nn_trainer()
+                trainer.data_collector.start_game(game_id)
+                logger.info(f"[NNTrainer] Started collecting data for game {game_id}")
+            except Exception as e:
+                logger.warning(f"Could not start NN data collection: {e}")
+            
             # Start game logging
             if self.game_logger:
                 opponent_name = black_player.get('name', 'Unknown') if our_color == 'white' else white_player.get('name', 'Unknown')
@@ -570,10 +579,26 @@ class LichessBotClient:
             moves_str = game_state.get('moves', '')
             moves_list = moves_str.split() if moves_str else []
             
-            # Reconstruct board state
+            # Reconstruct board state and record moves for neural network
             board = chess.Board()
-            for move_str in moves_list:
+            prev_move_count = game_info.get('move_count', 0)
+            
+            for i, move_str in enumerate(moves_list):
                 try:
+                    # Record position before move for neural network training
+                    if i >= prev_move_count:
+                        try:
+                            from nn_trainer import get_nn_trainer
+                            trainer = get_nn_trainer()
+                            trainer.data_collector.record_move(
+                                game_id=game_id,
+                                fen=board.fen(),
+                                move_uci=move_str,
+                                move_number=i + 1
+                            )
+                        except Exception:
+                            pass  # Don't fail game on NN error
+                    
                     move = chess.Move.from_uci(move_str)
                     board.push(move)
                 except ValueError:
@@ -635,6 +660,33 @@ class LichessBotClient:
                 
                 outcome = self._determine_game_outcome(status, our_color, board)
                 logger.info(f"Determined outcome: {outcome}")
+                
+                # Neural network training - finish game and train
+                try:
+                    from nn_trainer import get_nn_trainer
+                    trainer = get_nn_trainer()
+                    
+                    # Convert outcome to neural network format
+                    if outcome == 'win':
+                        nn_outcome = 'white_win' if our_color == 'white' else 'black_win'
+                    elif outcome == 'loss':
+                        nn_outcome = 'black_win' if our_color == 'white' else 'white_win'
+                    else:
+                        nn_outcome = 'draw'
+                    
+                    # Finish data collection and get game data
+                    game_data = trainer.data_collector.finish_game(game_id, nn_outcome, source='lichess')
+                    
+                    if game_data and len(game_data.moves) > 0:
+                        # Train on this game immediately
+                        from neural_network import MoveRecord
+                        moves = [MoveRecord(**m) for m in game_data.moves]
+                        result = trainer.network.train_on_game(moves)
+                        trainer.network.save_weights()
+                        trainer.data_collector.save_training_data()
+                        logger.info(f"[NNTrainer] Trained on {len(moves)} positions, loss: {result['loss']:.6f}")
+                except Exception as e:
+                    logger.warning(f"Error with neural network training: {e}")
                 
                 # Online learning - record game result
                 try:
@@ -745,6 +797,24 @@ class LichessBotClient:
                 self.config = config
                 self.search_engine = ChessSearchEngine(self.config)
                 logger.info(f"Initialized search engine with config: {self.config.config_id}")
+                
+                # Check if neural network weights exist and enable neural evaluation
+                try:
+                    from neural_network import NN_WEIGHTS_PATH
+                    from search import set_neural_evaluation
+                    from hybrid_evaluator import get_hybrid_evaluator
+                    
+                    if NN_WEIGHTS_PATH.exists():
+                        evaluator = get_hybrid_evaluator(self.config)
+                        if evaluator.neural_network is not None and evaluator.neural_network.positions_trained > 0:
+                            set_neural_evaluation(True)
+                            logger.info(f"[NeuralNet] Enabled neural evaluation (v{evaluator.neural_network.version}, {evaluator.neural_network.positions_trained} positions trained)")
+                        else:
+                            logger.info("[NeuralNet] Neural weights exist but network not trained, using heuristic")
+                    else:
+                        logger.info("[NeuralNet] No neural weights found, using heuristic evaluation")
+                except Exception as e:
+                    logger.warning(f"Could not initialize neural evaluation: {e}")
 
             # Get time control information for move timing
             time_limit = self._get_move_time_limit(game_id)

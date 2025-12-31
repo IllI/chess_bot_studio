@@ -57,6 +57,9 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
             "/api/training/status": self._get_training_status,
             "/api/training/current-game": self._get_current_game,
             "/api/lab/config": self._get_lab_config,
+            "/api/neural/status": self._get_neural_status,
+            "/api/neural/evaluate": self._get_neural_evaluate,
+            "/api/neural/current-game": self._get_neural_current_game,
         }
         
         # DEBUG: Check if path is in routes
@@ -94,6 +97,12 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
             "/api/training/resume": self._post_training_resume,
             "/api/training/reset": self._post_training_reset,
             "/api/lab/config": self._post_lab_config,
+            "/api/neural/train": self._post_neural_train,
+            "/api/neural/stop": self._post_neural_stop,
+            "/api/neural/reset": self._post_neural_reset,
+            "/api/neural/learning-rate": self._post_neural_learning_rate,
+            "/api/neural/save-and-apply": self._post_neural_save_and_apply,
+            "/api/neural/blend": self._post_neural_blend,
         }
         
         if path in routes:
@@ -382,6 +391,135 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
         instance = bot_manager.get_bot_instance(bot_id)
         applied = instance.config.get_current_config() if instance else {}
         self._send_json({"ok": True, "bot_id": bot_id, "applied_config": applied})
+
+    # ==================== Neural Network Handlers ====================
+
+    def _get_neural_status(self) -> None:
+        """Return neural network training status."""
+        from nn_trainer import get_nn_trainer
+        trainer = get_nn_trainer()
+        status = trainer.get_status()
+        self._send_json({"ok": True, **status})
+
+    def _get_neural_evaluate(self) -> None:
+        """Evaluate a position using the neural network."""
+        from urllib.parse import parse_qs
+        from nn_trainer import get_nn_trainer
+        
+        query = parse_qs(urlparse(self.path).query)
+        fen = query.get('fen', ['rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'])[0]
+        
+        trainer = get_nn_trainer()
+        result = trainer.evaluate_position(fen)
+        self._send_json(result)
+
+    def _get_neural_current_game(self) -> None:
+        """Return the current self-play game state for live preview."""
+        from nn_trainer import get_nn_trainer
+        trainer = get_nn_trainer()
+        game = trainer.get_current_game()
+        
+        if game:
+            self._send_json({"ok": True, "game": game})
+        else:
+            self._send_json({"ok": True, "game": None})
+
+    def _post_neural_train(self) -> None:
+        """Start neural network training."""
+        from nn_trainer import get_nn_trainer
+        
+        body = self._read_json_body()
+        trainer = get_nn_trainer()
+        
+        result = trainer.start_training(
+            epochs=body.get('epochs', 10),
+            batch_size=body.get('batch_size', 32),
+            learning_rate=body.get('learning_rate', 0.01),
+            include_self_play=body.get('include_self_play', True),
+            self_play_games=body.get('self_play_games', 50)
+        )
+        
+        self._send_json(result)
+
+    def _post_neural_stop(self) -> None:
+        """Stop neural network training."""
+        from nn_trainer import get_nn_trainer
+        trainer = get_nn_trainer()
+        result = trainer.stop_training_session()
+        self._send_json(result)
+
+    def _post_neural_reset(self) -> None:
+        """Reset neural network to random weights."""
+        from nn_trainer import get_nn_trainer
+        trainer = get_nn_trainer()
+        result = trainer.reset_network()
+        self._send_json(result)
+
+    def _post_neural_learning_rate(self) -> None:
+        """Update neural network learning rate."""
+        from nn_trainer import get_nn_trainer
+        
+        body = self._read_json_body()
+        rate = body.get('learning_rate', 0.01)
+        
+        trainer = get_nn_trainer()
+        result = trainer.set_learning_rate(rate)
+        self._send_json(result)
+
+    def _post_neural_save_and_apply(self) -> None:
+        """Save neural network weights and apply to bot."""
+        from nn_trainer import get_nn_trainer
+        from hybrid_evaluator import get_hybrid_evaluator
+        from search import set_neural_evaluation
+        
+        body = self._read_json_body()
+        neural_blend = body.get('neural_blend', 0.5)
+        
+        trainer = get_nn_trainer()
+        
+        # Save the network weights
+        trainer.network.save_weights()
+        trainer.data_collector.save_training_data()
+        
+        # Update the hybrid evaluator blend
+        evaluator = get_hybrid_evaluator()
+        evaluator.set_neural_blend(neural_blend)
+        evaluator.reload_neural_network()
+        
+        # Enable neural evaluation in the search engine
+        set_neural_evaluation(True)
+        
+        print(f"[ConfigAPI] Neural network saved and enabled with {neural_blend:.0%} blend")
+        
+        self._send_json({
+            'ok': True,
+            'message': f'Neural network saved and applied with {neural_blend:.0%} blend',
+            'neural_blend': neural_blend,
+            'network_version': trainer.network.version,
+            'positions_trained': trainer.network.positions_trained
+        })
+
+    def _post_neural_blend(self) -> None:
+        """Update the neural network blend ratio."""
+        from hybrid_evaluator import get_hybrid_evaluator
+        from search import set_neural_evaluation
+        
+        body = self._read_json_body()
+        neural_blend = body.get('neural_blend', 0.5)
+        
+        evaluator = get_hybrid_evaluator()
+        evaluator.set_neural_blend(neural_blend)
+        
+        # Enable/disable neural evaluation based on blend
+        if neural_blend > 0:
+            set_neural_evaluation(True)
+        else:
+            set_neural_evaluation(False)
+        
+        self._send_json({
+            'ok': True,
+            'neural_blend': neural_blend
+        })
 
 
 def run_server(port: int = 5050) -> None:

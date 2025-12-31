@@ -2,13 +2,13 @@
   "config": {
     "piece_values": {
       "pawn": 100,
-      "knight": 320,
-      "bishop": 364,
+      "knight": 301,
+      "bishop": 465,
       "rook": 504,
-      "queen": 637,
+      "queen": 615,
       "king": 0
     },
-    "mobility_weight": 4.2,
+    "mobility_weight": 4.5,
     "pawn_structure_bonus": {
       "passed_pawn": 50,
       "doubled_pawn": -20,
@@ -24,14 +24,14 @@
     },
     "search_depth": 5
   },
-  "updated_at": "2025-12-29T21:46:47.993671",
-  "total_games": 3,
-  "win_rate": 0.3333333333333333,
-  "current_streak": 1,
+  "updated_at": "2025-12-30T10:36:44.850864",
+  "total_games": 7,
+  "win_rate": 0.14285714285714285,
+  "current_streak": 5,
   "streak_type": "loss",
   "stats": {
     "wins": 1,
-    "losses": 1,
+    "losses": 5,
     "draws": 1
   }
 }

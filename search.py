@@ -8,7 +8,7 @@ for move selection in chess positions.
 import chess
 import logging
 import time
-from typing import Dict, Any, Optional, Tuple, List
+from typing import Dict, Any, Optional, Tuple, List, Callable
 from dataclasses import dataclass
 
 # Handle imports for both module and standalone execution
@@ -17,6 +17,45 @@ from config import ChessConfig, SEARCH_DEPTH, PIECE_VALUES
 
 # Set up logging for search decisions
 logger = logging.getLogger(__name__)
+
+
+# Global flag to enable/disable neural network evaluation
+_use_neural_evaluation = False
+_neural_evaluator = None
+
+
+def set_neural_evaluation(enabled: bool) -> None:
+    """Enable or disable neural network evaluation globally."""
+    global _use_neural_evaluation, _neural_evaluator
+    _use_neural_evaluation = enabled
+    if enabled:
+        try:
+            from hybrid_evaluator import get_hybrid_evaluator
+            _neural_evaluator = get_hybrid_evaluator()
+            logger.info(f"[Search] Neural evaluation enabled (blend: {_neural_evaluator.neural_blend:.0%})")
+        except Exception as e:
+            logger.warning(f"[Search] Could not enable neural evaluation: {e}")
+            _use_neural_evaluation = False
+    else:
+        _neural_evaluator = None
+        logger.info("[Search] Neural evaluation disabled")
+
+
+def get_evaluation(board: chess.Board, config: Optional[Dict] = None) -> float:
+    """
+    Get position evaluation using the best available method.
+    
+    Uses neural network if enabled, otherwise falls back to heuristic.
+    """
+    global _use_neural_evaluation, _neural_evaluator
+    
+    if _use_neural_evaluation and _neural_evaluator is not None:
+        try:
+            return _neural_evaluator.evaluate(board)
+        except Exception as e:
+            logger.warning(f"Neural evaluation failed, using heuristic: {e}")
+    
+    return evaluate_board(board, config)
 
 
 @dataclass
@@ -320,12 +359,12 @@ class ChessSearchEngine:
         if time_limit and (self.stats.nodes_evaluated % 100 == 0):  # Check every 100 nodes
             if (time.time() - start_time) > time_limit:
                 self.search_cancelled = True
-                return evaluate_board(board, self.config.get_current_config())
+                return get_evaluation(board, self.config.get_current_config())
         
         # Terminal conditions
         if depth == 0 or board.is_game_over():
             self.stats.positions_evaluated += 1
-            return evaluate_board(board, self.config.get_current_config())
+            return get_evaluation(board, self.config.get_current_config())
         
         legal_moves = list(board.legal_moves)
         

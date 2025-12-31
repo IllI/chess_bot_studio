@@ -949,6 +949,587 @@
       );
     };
 
+    // Neural Network Lab Component
+    const NeuralLab = ({ config, setConfig }) => {
+      const [isTraining, setIsTraining] = useState(false);
+      const [neuralStatus, setNeuralStatus] = useState(null);
+      const [epochs, setEpochs] = useState(20);
+      const [batchSize, setBatchSize] = useState(32);
+      const [learningRate, setLearningRate] = useState(0.01);
+      const [selfPlayGames, setSelfPlayGames] = useState(100);
+      const [includeSelfPlay, setIncludeSelfPlay] = useState(true);
+      const [logs, setLogs] = useState([]);
+      const [testFen, setTestFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+      const [evaluation, setEvaluation] = useState(null);
+      const [neuralBlend, setNeuralBlend] = useState(0.5);
+      const [networkSaved, setNetworkSaved] = useState(false);
+      const [networkEnabled, setNetworkEnabled] = useState(false);
+
+      // Poll neural network status
+      const [lastPhase, setLastPhase] = useState(null);
+      const [lastSelfPlayCount, setLastSelfPlayCount] = useState(0);
+      const [lastEpoch, setLastEpoch] = useState(0);
+      
+      useEffect(() => {
+        const interval = setInterval(() => {
+          fetch('http://localhost:5050/api/neural/status')
+            .then(res => res.json())
+            .then(data => {
+              if (data.ok !== false) {
+                setNeuralStatus(data);
+                
+                // Log phase changes
+                if (data.current_phase !== lastPhase) {
+                  setLastPhase(data.current_phase);
+                  if (data.current_phase === 'self_play') {
+                    addLog('🎮 Generating self-play training games...');
+                  } else if (data.current_phase === 'training') {
+                    addLog('📚 Starting neural network training...');
+                  } else if (data.current_phase === 'complete') {
+                    addLog('✅ Training complete!');
+                  }
+                }
+                
+                // Log self-play progress
+                if (data.current_phase === 'self_play' && data.self_play?.games_completed > lastSelfPlayCount) {
+                  if (data.self_play.games_completed % 10 === 0 || data.self_play.games_completed === data.self_play.games_target) {
+                    addLog(`Self-play: ${data.self_play.games_completed}/${data.self_play.games_target} games generated`);
+                  }
+                  setLastSelfPlayCount(data.self_play.games_completed);
+                }
+                
+                // Log epoch progress
+                if (data.current_phase === 'training' && data.epochs_completed > lastEpoch) {
+                  addLog(`Epoch ${data.epochs_completed}/${data.target_epochs} - Loss: ${data.current_loss.toFixed(6)}`);
+                  setLastEpoch(data.epochs_completed);
+                }
+                
+                if (data.is_training !== isTraining) {
+                  setIsTraining(data.is_training);
+                }
+              }
+            })
+            .catch(err => console.error('Neural status poll error:', err));
+        }, 1000);  // Poll every second for more responsive updates
+
+        return () => clearInterval(interval);
+      }, [isTraining, lastPhase, lastSelfPlayCount, lastEpoch]);
+
+      const addLog = (msg) => {
+        const timestamp = new Date().toLocaleTimeString();
+        setLogs(prev => [...prev.slice(-30), `[${timestamp}] ${msg}`]);
+      };
+
+      const startTraining = async () => {
+        addLog('Starting neural network training...');
+        setIsTraining(true);
+        setNetworkSaved(false);  // Reset save state when starting new training
+
+        try {
+          const response = await fetch('http://localhost:5050/api/neural/train', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              epochs,
+              batch_size: batchSize,
+              learning_rate: learningRate,
+              include_self_play: includeSelfPlay,
+              self_play_games: selfPlayGames
+            })
+          });
+          const data = await response.json();
+          if (data.ok) {
+            addLog(`🧠 Neural training started!`);
+            addLog(`Epochs: ${epochs}, Batch size: ${batchSize}`);
+            addLog(`Learning rate: ${learningRate}`);
+            if (includeSelfPlay) {
+              addLog(`Generating ${selfPlayGames} self-play games...`);
+            }
+          } else {
+            addLog(`❌ Error: ${data.error}`);
+            setIsTraining(false);
+          }
+        } catch (e) {
+          addLog(`❌ Connection error: ${e.message}`);
+          setIsTraining(false);
+        }
+      };
+
+      const stopTraining = async () => {
+        addLog('Stopping training...');
+        await fetch('http://localhost:5050/api/neural/stop', { method: 'POST' });
+        setIsTraining(false);
+      };
+
+      const resetNetwork = async () => {
+        if (!confirm('Reset neural network to random weights? All training will be lost.')) return;
+        
+        const response = await fetch('http://localhost:5050/api/neural/reset', { method: 'POST' });
+        const data = await response.json();
+        if (data.ok) {
+          addLog('🔄 Neural network reset to random weights');
+        }
+      };
+
+      const evaluatePosition = async () => {
+        try {
+          const response = await fetch(`http://localhost:5050/api/neural/evaluate?fen=${encodeURIComponent(testFen)}`);
+          const data = await response.json();
+          if (data.ok) {
+            setEvaluation(data);
+            addLog(`Evaluation: ${data.evaluation.toFixed(4)} - ${data.interpretation}`);
+          } else {
+            addLog(`❌ Evaluation error: ${data.error}`);
+          }
+        } catch (e) {
+          addLog(`❌ Error: ${e.message}`);
+        }
+      };
+
+      const saveAndApplyNetwork = async () => {
+        try {
+          const response = await fetch('http://localhost:5050/api/neural/save-and-apply', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ neural_blend: neuralBlend })
+          });
+          const data = await response.json();
+          if (data.ok) {
+            setNetworkSaved(true);
+            setNetworkEnabled(true);
+            addLog(`✅ Neural network saved and applied! Blend: ${(neuralBlend * 100).toFixed(0)}%`);
+          } else {
+            addLog(`❌ Error: ${data.error}`);
+          }
+        } catch (e) {
+          addLog(`❌ Error: ${e.message}`);
+        }
+      };
+
+      const updateNeuralBlend = async (blend) => {
+        setNeuralBlend(blend);
+        try {
+          await fetch('http://localhost:5050/api/neural/blend', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ neural_blend: blend })
+          });
+        } catch (e) {
+          console.error('Error updating blend:', e);
+        }
+      };
+
+      const stats = neuralStatus?.network_stats || {};
+      const dataStats = neuralStatus?.data_stats || {};
+      const progress = neuralStatus?.progress_percent || 0;
+
+      return (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-7 space-y-6">
+            {/* Main Training Panel */}
+            <div className="glass rounded-[40px] p-10 shadow-2xl relative overflow-hidden bg-slate-900/40">
+              <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-600/5 blur-[120px] pointer-events-none" />
+
+              <div className="flex items-center justify-between mb-8">
+                <div className="space-y-1">
+                  <h2 className="text-3xl font-black text-white">Neural Network Training</h2>
+                  <p className="text-slate-500 font-medium">Deep learning position evaluation</p>
+                </div>
+                <div className="glass px-4 py-2 rounded-2xl border-cyan-500/20">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400">Phase 2</span>
+                </div>
+              </div>
+
+              {/* Training Controls */}
+              <div className="space-y-6 mb-8">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Epochs</label>
+                    <input
+                      type="number" min="1" max="100" value={epochs}
+                      onChange={(e) => setEpochs(parseInt(e.target.value) || 20)}
+                      disabled={isTraining}
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Batch Size</label>
+                    <input
+                      type="number" min="8" max="128" value={batchSize}
+                      onChange={(e) => setBatchSize(parseInt(e.target.value) || 32)}
+                      disabled={isTraining}
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Learning Rate</label>
+                    <input
+                      type="number" min="0.001" max="0.1" step="0.001" value={learningRate}
+                      onChange={(e) => setLearningRate(parseFloat(e.target.value) || 0.01)}
+                      disabled={isTraining}
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Self-Play Games</label>
+                    <input
+                      type="number" min="10" max="500" value={selfPlayGames}
+                      onChange={(e) => setSelfPlayGames(parseInt(e.target.value) || 100)}
+                      disabled={isTraining}
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={includeSelfPlay}
+                    onChange={(e) => setIncludeSelfPlay(e.target.checked)}
+                    disabled={isTraining}
+                    className="w-5 h-5 rounded bg-slate-950 border-white/10"
+                  />
+                  <label className="text-sm text-slate-300">Generate self-play games for training data</label>
+                </div>
+
+                <div className="flex gap-3">
+                  {!isTraining ? (
+                    <button
+                      onClick={startTraining}
+                      className="flex-1 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all"
+                    >
+                      <span>🧠</span> Start Neural Training
+                    </button>
+                  ) : (
+                    <button
+                      onClick={stopTraining}
+                      className="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all"
+                    >
+                      ⏹ Stop Training
+                    </button>
+                  )}
+                  <button
+                    onClick={resetNetwork}
+                    disabled={isTraining}
+                    className="px-6 py-4 bg-slate-700 hover:bg-slate-600 rounded-2xl font-bold text-white transition-all disabled:opacity-50"
+                  >
+                    🔄 Reset
+                  </button>
+                </div>
+              </div>
+
+              {/* Progress */}
+              <div className="space-y-4">
+                {/* Current Phase Indicator */}
+                {isTraining && (
+                  <div className="flex items-center gap-3 p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                    <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                    <span className="text-sm text-cyan-300">
+                      {neuralStatus?.current_phase === 'self_play' && (
+                        <>Generating self-play games: {neuralStatus?.self_play?.games_completed || 0}/{neuralStatus?.self_play?.games_target || selfPlayGames}</>
+                      )}
+                      {neuralStatus?.current_phase === 'training' && (
+                        <>Training epoch {neuralStatus?.epochs_completed || 0}/{neuralStatus?.target_epochs || epochs}</>
+                      )}
+                      {neuralStatus?.current_phase === 'starting' && 'Initializing...'}
+                      {neuralStatus?.current_phase === 'complete' && '✓ Training complete!'}
+                    </span>
+                  </div>
+                )}
+                
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">Overall Progress</span>
+                  <span className="font-mono text-cyan-400">
+                    {neuralStatus?.current_phase === 'self_play' 
+                      ? `Self-play: ${neuralStatus?.self_play?.games_completed || 0}/${neuralStatus?.self_play?.games_target || selfPlayGames} games`
+                      : `${neuralStatus?.epochs_completed || 0}/${neuralStatus?.target_epochs || epochs} epochs`
+                    }
+                  </span>
+                </div>
+                <div className="h-4 bg-slate-950 rounded-full overflow-hidden border border-white/5">
+                  <div
+                    style={{ width: `${Math.min(100, progress)}%` }}
+                    className="h-full bg-gradient-to-r from-cyan-600 to-blue-500 transition-all duration-500"
+                  />
+                </div>
+                <div className="flex justify-between text-xs text-slate-500">
+                  <span>Loss: <span className="text-cyan-400 font-bold">{(neuralStatus?.current_loss || 0).toFixed(6)}</span></span>
+                  <span>Positions: <span className="text-cyan-400 font-bold">{stats.positions_trained || 0}</span></span>
+                  <span>{progress.toFixed(0)}% complete</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Logs */}
+            <div className="glass rounded-[32px] p-8 h-[250px] flex flex-col bg-black/20">
+              <h3 className="font-bold text-sm uppercase tracking-widest mb-6 flex items-center gap-3 text-slate-400">
+                <span className="text-cyan-400">›</span> Neural Training Log
+              </h3>
+              <div className="flex-1 overflow-y-auto space-y-1 mono text-[11px] text-slate-400 custom-scrollbar">
+                {logs.length === 0 && <div className="italic text-slate-600">Configure parameters and start training...</div>}
+                {logs.map((log, i) => (
+                  <div key={i} className="flex gap-2">
+                    <span className="text-cyan-500 shrink-0 opacity-50">›</span>
+                    <span>{log}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Sidebar */}
+          <div className="lg:col-span-5 space-y-6">
+            {/* Live Chessboard during self-play */}
+            {isTraining && neuralStatus?.current_phase === 'self_play' && (
+              neuralStatus?.current_game ? (
+                <div className="glass rounded-[32px] p-6 shadow-xl border-cyan-500/20 bg-cyan-500/5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3 text-white">
+                      <span className="text-cyan-400">♟</span>
+                      <h3 className="font-bold text-lg">Live Self-Play</h3>
+                    </div>
+                    <span className="text-xs font-mono text-cyan-400">
+                      Game {neuralStatus.current_game.game_number}/{neuralStatus.current_game.total_games}
+                    </span>
+                  </div>
+                  <LiveChessboard
+                    fen={neuralStatus.current_game.fen}
+                    whiteId={neuralStatus.current_game.white_id}
+                    blackId={neuralStatus.current_game.black_id}
+                    moveCount={neuralStatus.current_game.move_count}
+                    lastMove={neuralStatus.current_game.last_move}
+                  />
+                </div>
+              ) : (
+                <div className="glass rounded-[32px] p-6 shadow-xl border-cyan-500/20 bg-cyan-500/5">
+                  <div className="flex items-center gap-3 mb-4 text-white">
+                    <span className="text-cyan-400">♟</span>
+                    <h3 className="font-bold text-lg">Live Self-Play</h3>
+                  </div>
+                  <div className="aspect-square bg-slate-950 rounded-xl flex items-center justify-center border border-white/10">
+                    <div className="text-center space-y-3">
+                      <div className="text-4xl animate-pulse">🧠</div>
+                      <p className="text-sm text-slate-400">Starting self-play...</p>
+                    </div>
+                  </div>
+                </div>
+              )
+            )}
+            
+            {/* Training visualization during epoch training */}
+            {isTraining && neuralStatus?.current_phase === 'training' && (
+              <div className="glass rounded-[32px] p-6 shadow-xl border-purple-500/20 bg-purple-500/5">
+                <div className="flex items-center gap-3 mb-4 text-white">
+                  <span className="text-purple-400">📈</span>
+                  <h3 className="font-bold text-lg">Training Progress</h3>
+                </div>
+                <div className="space-y-4">
+                  <div className="text-center py-8">
+                    <div className="text-6xl mb-4">🧠</div>
+                    <p className="text-lg font-bold text-purple-400">
+                      Epoch {neuralStatus?.epochs_completed || 0}/{neuralStatus?.target_epochs || epochs}
+                    </p>
+                    <p className="text-sm text-slate-400 mt-2">
+                      Training on {dataStats.total_positions || 0} positions
+                    </p>
+                  </div>
+                  <div className="p-4 bg-slate-950/50 rounded-xl">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-slate-400">Current Loss</span>
+                      <span className="font-mono text-purple-400">{(neuralStatus?.current_loss || 0).toFixed(6)}</span>
+                    </div>
+                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-purple-500 transition-all"
+                        style={{ width: `${Math.max(5, 100 - (neuralStatus?.current_loss || 0) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Network Stats */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-cyan-500/20 bg-cyan-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-cyan-400">📊</span>
+                <h3 className="font-bold text-xl">Network Statistics</h3>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between p-3 bg-slate-950/50 rounded-xl">
+                  <span className="text-slate-400">Games Trained</span>
+                  <span className="font-mono text-cyan-400">{neuralStatus?.network_stats?.games_trained || stats.games_trained || 0}</span>
+                </div>
+                <div className="flex justify-between p-3 bg-slate-950/50 rounded-xl">
+                  <span className="text-slate-400">Positions Trained</span>
+                  <span className="font-mono text-cyan-400">{neuralStatus?.network_stats?.positions_trained || stats.positions_trained || 0}</span>
+                </div>
+                <div className="flex justify-between p-3 bg-slate-950/50 rounded-xl">
+                  <span className="text-slate-400">Average Loss</span>
+                  <span className="font-mono text-cyan-400">{(neuralStatus?.network_stats?.avg_loss || stats.avg_loss || 0).toFixed(6)}</span>
+                </div>
+                <div className="flex justify-between p-3 bg-slate-950/50 rounded-xl">
+                  <span className="text-slate-400">Network Version</span>
+                  <span className="font-mono text-cyan-400">v{neuralStatus?.network_stats?.version || stats.version || 0}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Save & Apply Neural Network */}
+            {(neuralStatus?.network_stats?.positions_trained > 0 || stats.positions_trained > 0) && (
+              <div className="glass rounded-[32px] p-8 shadow-xl border-emerald-500/20 bg-emerald-500/5">
+                <div className="flex items-center gap-3 mb-6 text-white">
+                  <span className="text-emerald-400">💾</span>
+                  <h3 className="font-bold text-xl">Apply to Bot</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <label className="text-slate-400">Neural Network Blend</label>
+                      <span className="font-mono text-emerald-400">{(neuralBlend * 100).toFixed(0)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={neuralBlend * 100}
+                      onChange={(e) => updateNeuralBlend(parseInt(e.target.value) / 100)}
+                      className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <div className="flex justify-between text-xs text-slate-500">
+                      <span>0% (Heuristic only)</span>
+                      <span>100% (Neural only)</span>
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-slate-400">
+                    Controls how much the bot relies on the neural network vs traditional heuristics. 
+                    Start with 50% to blend both approaches.
+                  </p>
+                  
+                  <button
+                    onClick={saveAndApplyNetwork}
+                    disabled={isTraining}
+                    className={`w-full py-3 rounded-2xl font-bold text-white transition-all ${
+                      networkSaved 
+                        ? 'bg-emerald-800 cursor-default' 
+                        : 'bg-emerald-600 hover:bg-emerald-500'
+                    } disabled:opacity-50`}
+                  >
+                    {networkSaved ? '✓ Saved & Applied!' : '💾 Save & Apply to Bot'}
+                  </button>
+                  
+                  {networkEnabled && (
+                    <div className="flex items-center gap-2 p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                      <div className="w-2 h-2 rounded-full bg-emerald-400" />
+                      <span className="text-sm text-emerald-300">Neural network active on Lichess bot</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Position Evaluator */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-blue-500/20 bg-blue-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-blue-400">🔍</span>
+                <h3 className="font-bold text-xl">Test Evaluation</h3>
+              </div>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">FEN Position</label>
+                  <input
+                    type="text"
+                    value={testFen}
+                    onChange={(e) => setTestFen(e.target.value)}
+                    className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-xs"
+                    placeholder="Enter FEN..."
+                  />
+                </div>
+                <button
+                  onClick={evaluatePosition}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-2xl font-bold text-white transition-all"
+                >
+                  Evaluate Position
+                </button>
+                {evaluation && (
+                  <div className="p-4 bg-slate-950/50 rounded-xl space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-slate-400">Score</span>
+                      <span className={`font-mono font-bold ${evaluation.evaluation > 0 ? 'text-green-400' : evaluation.evaluation < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                        {evaluation.evaluation > 0 ? '+' : ''}{evaluation.evaluation.toFixed(4)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-400">{evaluation.interpretation}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* How Neural Networks Work */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-purple-500/20 bg-purple-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-purple-400">📖</span>
+                <h3 className="font-bold text-xl">How It Works</h3>
+              </div>
+              <div className="space-y-4 text-sm text-slate-300">
+                <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
+                  <div className="font-bold text-purple-400 mb-1">Input Layer (768 neurons)</div>
+                  <p className="text-xs text-slate-400">Each square × each piece type = 768 inputs. The network "sees" the board as a pattern of 1s and 0s.</p>
+                </div>
+                <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
+                  <div className="font-bold text-purple-400 mb-1">Hidden Layers (256 → 64)</div>
+                  <p className="text-xs text-slate-400">These layers learn patterns: piece coordination, pawn structure, king safety. Each neuron detects a specific feature.</p>
+                </div>
+                <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
+                  <div className="font-bold text-purple-400 mb-1">Output (1 neuron)</div>
+                  <p className="text-xs text-slate-400">A single value from -1 to +1. Positive = white advantage, negative = black advantage.</p>
+                </div>
+                <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
+                  <div className="font-bold text-purple-400 mb-1">Learning Process</div>
+                  <p className="text-xs text-slate-400">After each game, we label every position with the outcome. The network adjusts weights to predict winners better.</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Training Data Stats */}
+            <div className="glass rounded-[32px] p-8 shadow-xl">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-emerald-400">📁</span>
+                <h3 className="font-bold text-xl">Training Data</h3>
+              </div>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Total Games</span>
+                  <span className="font-mono text-emerald-400">{neuralStatus?.data_stats?.total_games || dataStats.total_games || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Total Positions</span>
+                  <span className="font-mono text-emerald-400">{neuralStatus?.data_stats?.total_positions || dataStats.total_positions || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">White Wins</span>
+                  <span className="font-mono text-emerald-400">{neuralStatus?.data_stats?.outcomes?.white_win || dataStats.outcomes?.white_win || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Black Wins</span>
+                  <span className="font-mono text-emerald-400">{neuralStatus?.data_stats?.outcomes?.black_win || dataStats.outcomes?.black_win || 0}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Draws</span>
+                  <span className="font-mono text-emerald-400">{neuralStatus?.data_stats?.outcomes?.draw || dataStats.outcomes?.draw || 0}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     const EngineArena = ({ config }) => {
       const [isSimulating, setIsSimulating] = useState(false);
       const [nodes, setNodes] = useState(0);
@@ -1087,6 +1668,7 @@
               <NavButton active={activeView === 'learn'} onClick={() => setActiveView('learn')} icon={<span>A</span>} label="Academy" />
               <NavButton active={activeView === 'tune'} onClick={() => setActiveView('tune')} icon={<span>⚙</span>} label="Lab" />
               <NavButton active={activeView === 'train'} onClick={() => setActiveView('train')} icon={<span>🧬</span>} label="Train" />
+              <NavButton active={activeView === 'neural'} onClick={() => setActiveView('neural')} icon={<span>🧠</span>} label="Neural" />
               <NavButton active={activeView === 'arena'} onClick={() => setActiveView('arena')} icon={<span>▶</span>} label="Arena" />
             </div>
 
@@ -1106,6 +1688,7 @@
             {activeView === 'learn' && <LearningCenter onContinue={() => setActiveView('tune')} />}
             {activeView === 'tune' && <TuningLab config={config} setConfig={setConfig} />}
             {activeView === 'train' && <TrainingLab config={config} setConfig={setConfig} />}
+            {activeView === 'neural' && <NeuralLab config={config} setConfig={setConfig} />}
             {activeView === 'arena' && <EngineArena config={config} />}
           </main>
 
