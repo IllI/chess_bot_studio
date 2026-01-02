@@ -100,6 +100,7 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
             "/api/neural/train": self._post_neural_train,
             "/api/neural/stop": self._post_neural_stop,
             "/api/neural/reset": self._post_neural_reset,
+            "/api/neural/bootstrap": self._post_neural_bootstrap,
             "/api/neural/learning-rate": self._post_neural_learning_rate,
             "/api/neural/save-and-apply": self._post_neural_save_and_apply,
             "/api/neural/blend": self._post_neural_blend,
@@ -459,6 +460,28 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
         trainer = get_nn_trainer()
         result = trainer.reset_network()
         self._send_json(result)
+
+    def _post_neural_bootstrap(self) -> None:
+        """Bootstrap neural network with supervised learning from heuristic."""
+        from nn_trainer import get_nn_trainer
+        
+        body = self._read_json_body()
+        num_positions = body.get('num_positions', 2000)
+        
+        trainer = get_nn_trainer()
+        
+        # Run supervised training
+        result = trainer.network.train_supervised_from_heuristic(num_positions)
+        
+        # Also train on tactical positions
+        tactical_result = trainer.network.train_on_tactical_positions()
+        
+        self._send_json({
+            'ok': True,
+            'supervised': result,
+            'tactical': tactical_result,
+            'message': f'Bootstrapped network with {result["positions_trained"]} positions'
+        })
 
     def _post_neural_learning_rate(self) -> None:
         """Update neural network learning rate."""
