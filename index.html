@@ -157,6 +157,411 @@
       </div>
     );
 
+    // ============== EDUCATIONAL VISUALIZATION COMPONENTS ==============
+
+    // Neural Network Architecture Visualization
+    const NeuralNetworkDiagram = ({ inputSize = 833, hidden1 = 512, hidden2 = 128, hidden3 = 32, output = 1 }) => {
+      const layers = [
+        { name: 'Input', size: inputSize, color: 'cyan', neurons: 6 },
+        { name: 'Hidden 1', size: hidden1, color: 'purple', neurons: 5 },
+        { name: 'Hidden 2', size: hidden2, color: 'purple', neurons: 4 },
+        { name: 'Hidden 3', size: hidden3, color: 'purple', neurons: 3 },
+        { name: 'Output', size: output, color: 'emerald', neurons: 1 }
+      ];
+
+      return (
+        <div className="p-6 bg-slate-950/50 rounded-2xl border border-white/5">
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="font-bold text-white">Network Architecture</h4>
+            <span className="text-xs text-slate-500 font-mono">{inputSize}→{hidden1}→{hidden2}→{hidden3}→{output}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            {layers.map((layer, i) => (
+              <div key={i} className="flex flex-col items-center gap-2">
+                <div className="flex flex-col gap-1">
+                  {Array(layer.neurons).fill(0).map((_, j) => (
+                    <div 
+                      key={j} 
+                      className={`w-4 h-4 rounded-full bg-${layer.color}-500/30 border border-${layer.color}-500/50`}
+                      style={{ 
+                        backgroundColor: `rgba(${layer.color === 'cyan' ? '34,211,238' : layer.color === 'purple' ? '168,85,247' : '52,211,153'}, 0.3)`,
+                        borderColor: `rgba(${layer.color === 'cyan' ? '34,211,238' : layer.color === 'purple' ? '168,85,247' : '52,211,153'}, 0.5)`
+                      }}
+                    />
+                  ))}
+                  {layer.neurons < 6 && <div className="text-[8px] text-slate-600">...</div>}
+                </div>
+                <div className="text-center">
+                  <div className="text-[10px] font-bold text-slate-400">{layer.name}</div>
+                  <div className="text-[9px] font-mono text-slate-600">{layer.size}</div>
+                </div>
+                {i < layers.length - 1 && (
+                  <div className="absolute" style={{ left: `${(i + 0.5) * 20}%` }}>
+                    <span className="text-slate-700">→</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    };
+
+    // Mathematical Formula Display Component
+    const MathFormula = ({ title, formula, description, variables }) => {
+      const [showDetails, setShowDetails] = useState(false);
+      
+      return (
+        <div className="p-4 bg-slate-950/50 rounded-xl border border-white/5 hover:border-white/10 transition-all">
+          <div 
+            className="flex items-center justify-between cursor-pointer"
+            onClick={() => setShowDetails(!showDetails)}
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-amber-400">∑</span>
+              <span className="font-bold text-white text-sm">{title}</span>
+            </div>
+            <span className="text-slate-500 text-xs">{showDetails ? '▼' : '▶'}</span>
+          </div>
+          
+          <div className="mt-3 p-3 bg-slate-900 rounded-lg font-mono text-sm text-cyan-300 overflow-x-auto">
+            {formula}
+          </div>
+          
+          {showDetails && (
+            <div className="mt-3 space-y-2">
+              <p className="text-xs text-slate-400">{description}</p>
+              {variables && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {variables.map((v, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span className="font-mono text-purple-400">{v.symbol}</span>
+                      <span className="text-slate-500">=</span>
+                      <span className="text-slate-400">{v.meaning}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    // Training Progress Chart (Simple Bar Chart)
+    const TrainingChart = ({ history = [], maxPoints = 20 }) => {
+      const data = history.slice(-maxPoints);
+      const maxLoss = Math.max(...data.map(d => d.loss || 0), 0.5);
+      
+      if (data.length === 0) {
+        return (
+          <div className="p-6 bg-slate-950/50 rounded-2xl border border-white/5 text-center">
+            <div className="text-slate-600 text-sm">No training data yet</div>
+            <div className="text-slate-700 text-xs mt-1">Start training to see loss curve</div>
+          </div>
+        );
+      }
+      
+      return (
+        <div className="p-4 bg-slate-950/50 rounded-2xl border border-white/5">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-bold text-white text-sm">Loss Over Time</h4>
+            <span className="text-xs text-slate-500 font-mono">Last {data.length} epochs</span>
+          </div>
+          <div className="flex items-end gap-1 h-24">
+            {data.map((d, i) => (
+              <div 
+                key={i}
+                className="flex-1 bg-gradient-to-t from-purple-600 to-purple-400 rounded-t opacity-80 hover:opacity-100 transition-all cursor-pointer group relative"
+                style={{ height: `${Math.max(5, (d.loss / maxLoss) * 100)}%` }}
+                title={`Epoch ${d.epoch}: Loss ${d.loss?.toFixed(6)}`}
+              >
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 px-2 py-1 rounded text-[9px] font-mono text-white opacity-0 group-hover:opacity-100 whitespace-nowrap z-10">
+                  {d.loss?.toFixed(4)}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between mt-2 text-[9px] text-slate-600">
+            <span>Epoch {data[0]?.epoch || 1}</span>
+            <span>Epoch {data[data.length - 1]?.epoch || 1}</span>
+          </div>
+        </div>
+      );
+    };
+
+    // Reward Signal Visualization
+    const RewardSignalViz = ({ materialChange = 0, gameOutcome = 0.5, isCapture = false }) => {
+      const materialSignal = Math.max(-1, Math.min(1, materialChange / 2000));
+      const outcomeSignal = gameOutcome * 2 - 1;
+      
+      // Calculate weights based on capture
+      let materialWeight, outcomeWeight;
+      if (isCapture) {
+        if (materialChange < -200) {
+          materialWeight = 0.9;
+          outcomeWeight = 0.1;
+        } else if (materialChange > 200) {
+          materialWeight = 0.85;
+          outcomeWeight = 0.15;
+        } else {
+          materialWeight = 0.7;
+          outcomeWeight = 0.3;
+        }
+      } else {
+        materialWeight = 0.3;
+        outcomeWeight = 0.7;
+      }
+      
+      const finalSignal = materialWeight * materialSignal + outcomeWeight * outcomeSignal;
+      
+      return (
+        <div className="p-4 bg-slate-950/50 rounded-xl border border-white/5">
+          <h4 className="font-bold text-white text-sm mb-3">Reward Signal Calculation</h4>
+          
+          <div className="space-y-3">
+            {/* Material Signal */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Material Signal</span>
+                <span className="font-mono text-cyan-400">{materialSignal.toFixed(3)}</span>
+              </div>
+              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all ${materialSignal >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
+                  style={{ 
+                    width: `${Math.abs(materialSignal) * 50}%`,
+                    marginLeft: materialSignal >= 0 ? '50%' : `${50 - Math.abs(materialSignal) * 50}%`
+                  }}
+                />
+              </div>
+              <div className="text-[9px] text-slate-600 font-mono">
+                weight: {(materialWeight * 100).toFixed(0)}%
+              </div>
+            </div>
+            
+            {/* Outcome Signal */}
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-400">Outcome Signal</span>
+                <span className="font-mono text-purple-400">{outcomeSignal.toFixed(3)}</span>
+              </div>
+              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full transition-all ${outcomeSignal >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
+                  style={{ 
+                    width: `${Math.abs(outcomeSignal) * 50}%`,
+                    marginLeft: outcomeSignal >= 0 ? '50%' : `${50 - Math.abs(outcomeSignal) * 50}%`
+                  }}
+                />
+              </div>
+              <div className="text-[9px] text-slate-600 font-mono">
+                weight: {(outcomeWeight * 100).toFixed(0)}%
+              </div>
+            </div>
+            
+            {/* Final Signal */}
+            <div className="pt-2 border-t border-white/5">
+              <div className="flex justify-between text-xs">
+                <span className="text-white font-bold">Final Target</span>
+                <span className={`font-mono font-bold ${finalSignal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {finalSignal >= 0 ? '+' : ''}{finalSignal.toFixed(3)}
+                </span>
+              </div>
+              <div className="mt-1 p-2 bg-slate-900 rounded text-[10px] font-mono text-slate-400">
+                target = {materialWeight.toFixed(2)} × {materialSignal.toFixed(3)} + {outcomeWeight.toFixed(2)} × {outcomeSignal.toFixed(3)}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // Backpropagation Visualization
+    const BackpropViz = ({ loss = 0.1, learningRate = 0.01 }) => {
+      const gradient = 2 * loss; // Simplified MSE gradient
+      const weightUpdate = learningRate * gradient;
+      
+      return (
+        <div className="p-4 bg-slate-950/50 rounded-xl border border-white/5">
+          <h4 className="font-bold text-white text-sm mb-3">Backpropagation Step</h4>
+          
+          <div className="space-y-4">
+            {/* Loss */}
+            <div className="flex items-center gap-3">
+              <div className="w-16 text-xs text-slate-400">Loss (L)</div>
+              <div className="flex-1 h-6 bg-slate-800 rounded relative overflow-hidden">
+                <div 
+                  className="h-full bg-red-500/50"
+                  style={{ width: `${Math.min(100, loss * 200)}%` }}
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-white">
+                  {loss.toFixed(6)}
+                </span>
+              </div>
+            </div>
+            
+            {/* Gradient */}
+            <div className="flex items-center gap-3">
+              <div className="w-16 text-xs text-slate-400">∂L/∂w</div>
+              <div className="flex-1 h-6 bg-slate-800 rounded relative overflow-hidden">
+                <div 
+                  className="h-full bg-amber-500/50"
+                  style={{ width: `${Math.min(100, gradient * 100)}%` }}
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-white">
+                  {gradient.toFixed(6)}
+                </span>
+              </div>
+            </div>
+            
+            {/* Weight Update */}
+            <div className="flex items-center gap-3">
+              <div className="w-16 text-xs text-slate-400">Δw</div>
+              <div className="flex-1 h-6 bg-slate-800 rounded relative overflow-hidden">
+                <div 
+                  className="h-full bg-emerald-500/50"
+                  style={{ width: `${Math.min(100, weightUpdate * 1000)}%` }}
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-[10px] font-mono text-white">
+                  -{weightUpdate.toFixed(6)}
+                </span>
+              </div>
+            </div>
+            
+            {/* Formula */}
+            <div className="p-2 bg-slate-900 rounded text-[10px] font-mono text-cyan-300">
+              w_new = w_old - η × ∂L/∂w = w - {learningRate} × {gradient.toFixed(4)}
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    // Activation Function Visualizer
+    const ActivationViz = ({ type = 'leaky_relu' }) => {
+      const points = [];
+      for (let x = -3; x <= 3; x += 0.2) {
+        let y;
+        if (type === 'leaky_relu') {
+          y = x > 0 ? x : 0.01 * x;
+        } else if (type === 'tanh') {
+          y = Math.tanh(x);
+        } else if (type === 'sigmoid') {
+          y = 1 / (1 + Math.exp(-x));
+        }
+        points.push({ x, y });
+      }
+      
+      const maxY = Math.max(...points.map(p => Math.abs(p.y)));
+      
+      return (
+        <div className="p-4 bg-slate-950/50 rounded-xl border border-white/5">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-bold text-white text-sm">Activation: {type === 'leaky_relu' ? 'Leaky ReLU' : type === 'tanh' ? 'Tanh' : 'Sigmoid'}</h4>
+          </div>
+          
+          <div className="relative h-32 bg-slate-900 rounded-lg overflow-hidden">
+            {/* Grid */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="w-px h-full bg-slate-700" />
+            </div>
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full h-px bg-slate-700" />
+            </div>
+            
+            {/* Curve */}
+            <svg className="absolute inset-0 w-full h-full">
+              <polyline
+                fill="none"
+                stroke="rgb(34, 211, 238)"
+                strokeWidth="2"
+                points={points.map((p, i) => {
+                  const x = ((p.x + 3) / 6) * 100;
+                  const y = 50 - (p.y / (maxY || 1)) * 40;
+                  return `${x}%,${y}%`;
+                }).join(' ')}
+              />
+            </svg>
+            
+            {/* Labels */}
+            <div className="absolute bottom-1 left-2 text-[8px] text-slate-600">-3</div>
+            <div className="absolute bottom-1 right-2 text-[8px] text-slate-600">+3</div>
+          </div>
+          
+          <div className="mt-2 p-2 bg-slate-900 rounded text-[10px] font-mono text-slate-400">
+            {type === 'leaky_relu' && 'f(x) = max(0.01x, x)'}
+            {type === 'tanh' && 'f(x) = (eˣ - e⁻ˣ) / (eˣ + e⁻ˣ)'}
+            {type === 'sigmoid' && 'f(x) = 1 / (1 + e⁻ˣ)'}
+          </div>
+        </div>
+      );
+    };
+
+    // Educational Modal Component
+    const EducationalModal = ({ isOpen, onClose, title, children }) => {
+      if (!isOpen) return null;
+      
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+          <div className="relative glass rounded-[32px] p-8 max-w-2xl max-h-[80vh] overflow-y-auto custom-scrollbar">
+            <button 
+              onClick={onClose}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white text-xl"
+            >
+              ×
+            </button>
+            <h2 className="text-2xl font-bold text-white mb-6">{title}</h2>
+            {children}
+          </div>
+        </div>
+      );
+    };
+
+    // Piece Value Comparison Chart
+    const PieceValueChart = () => {
+      const pieces = [
+        { name: 'Pawn', symbol: '♟', value: 100, color: 'slate' },
+        { name: 'Knight', symbol: '♞', value: 320, color: 'blue' },
+        { name: 'Bishop', symbol: '♝', value: 330, color: 'purple' },
+        { name: 'Rook', symbol: '♜', value: 500, color: 'amber' },
+        { name: 'Queen', symbol: '♛', value: 900, color: 'red' },
+      ];
+      
+      const maxValue = 900;
+      
+      return (
+        <div className="p-4 bg-slate-950/50 rounded-xl border border-white/5">
+          <h4 className="font-bold text-white text-sm mb-4">Standard Piece Values (Centipawns)</h4>
+          <div className="space-y-2">
+            {pieces.map((piece, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="text-2xl w-8">{piece.symbol}</span>
+                <div className="flex-1">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-slate-400">{piece.name}</span>
+                    <span className="font-mono text-cyan-400">{piece.value}</span>
+                  </div>
+                  <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full"
+                      style={{ width: `${(piece.value / maxValue) * 100}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 p-2 bg-slate-900 rounded text-[10px] font-mono text-slate-400">
+            Material = Σ (piece_count × piece_value)
+          </div>
+        </div>
+      );
+    };
+
+    // ============== END EDUCATIONAL COMPONENTS ==============
+
     const TuningLab = ({ config, setConfig }) => {
       const [aiReport, setAiReport] = useState(null);
       const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -950,6 +1355,200 @@
     };
 
     // Neural Network Lab Component
+    // Supervised Learning Educational Modal
+    const SupervisedLearningModal = ({ isOpen, onClose }) => {
+      if (!isOpen) return null;
+      
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+          <div className="relative glass rounded-[32px] p-8 max-w-3xl max-h-[85vh] overflow-y-auto custom-scrollbar border border-amber-500/30">
+            <button 
+              onClick={onClose}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white text-2xl w-8 h-8 flex items-center justify-center rounded-full hover:bg-white/10"
+            >
+              ×
+            </button>
+            
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-amber-500/20 rounded-2xl">
+                  <span className="text-3xl">📚</span>
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Supervised Learning</h2>
+                  <p className="text-amber-400 text-sm">Teaching the network with known answers</p>
+                </div>
+              </div>
+              
+              {/* What is Supervised Learning */}
+              <div className="p-5 bg-slate-950/50 rounded-2xl border border-white/5">
+                <h3 className="font-bold text-amber-400 mb-3 flex items-center gap-2">
+                  <span>🎯</span> What is Supervised Learning?
+                </h3>
+                <p className="text-sm text-slate-300 leading-relaxed">
+                  Supervised learning trains the neural network using <span className="text-amber-300 font-semibold">labeled examples</span> where we already know the correct answer. Instead of letting the network discover patterns through trial and error (like RL), we directly tell it: "For this position, the correct evaluation is X."
+                </p>
+                <div className="mt-3 p-3 bg-slate-900 rounded-xl">
+                  <div className="text-xs text-slate-500 mb-1">Analogy:</div>
+                  <p className="text-sm text-slate-400">
+                    RL is like learning to cook by randomly mixing ingredients and seeing if the dish tastes good. Supervised learning is like following a recipe from a master chef.
+                  </p>
+                </div>
+              </div>
+              
+              {/* The Mathematical Heuristic */}
+              <div className="p-5 bg-slate-950/50 rounded-2xl border border-amber-500/20">
+                <h3 className="font-bold text-amber-400 mb-3 flex items-center gap-2">
+                  <span>∑</span> The Mathematical Heuristic
+                </h3>
+                <p className="text-sm text-slate-300 mb-4">
+                  We use a hand-crafted evaluation function as the "teacher". This function encodes decades of chess knowledge:
+                </p>
+                
+                {/* Main Formula */}
+                <div className="p-4 bg-slate-900 rounded-xl font-mono text-sm mb-4">
+                  <div className="text-cyan-300 mb-2">target = heuristic_eval(position)</div>
+                  <div className="text-purple-300">
+                    heuristic_eval = material + mobility × w₁ + king_safety × w₂ + pawn_structure × w₃
+                  </div>
+                </div>
+                
+                {/* Component Breakdown */}
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 bg-slate-900/50 rounded-lg">
+                    <div className="text-emerald-400 font-bold mb-1">Material</div>
+                    <div className="font-mono text-slate-400">Σ(piece_count × value)</div>
+                    <div className="text-slate-500 mt-1">♙=100, ♘=320, ♗=330, ♖=500, ♕=900</div>
+                  </div>
+                  <div className="p-3 bg-slate-900/50 rounded-lg">
+                    <div className="text-blue-400 font-bold mb-1">Mobility</div>
+                    <div className="font-mono text-slate-400">legal_moves × weight</div>
+                    <div className="text-slate-500 mt-1">More options = better position</div>
+                  </div>
+                  <div className="p-3 bg-slate-900/50 rounded-lg">
+                    <div className="text-red-400 font-bold mb-1">King Safety</div>
+                    <div className="font-mono text-slate-400">-penalty × exposure</div>
+                    <div className="text-slate-500 mt-1">Exposed king = danger</div>
+                  </div>
+                  <div className="p-3 bg-slate-900/50 rounded-lg">
+                    <div className="text-purple-400 font-bold mb-1">Pawn Structure</div>
+                    <div className="font-mono text-slate-400">bonus - doubled - isolated</div>
+                    <div className="text-slate-500 mt-1">Healthy pawns = strong endgame</div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* How Learning Works */}
+              <div className="p-5 bg-slate-950/50 rounded-2xl border border-white/5">
+                <h3 className="font-bold text-amber-400 mb-3 flex items-center gap-2">
+                  <span>⚡</span> How It Enforces Learning
+                </h3>
+                <p className="text-sm text-slate-300 mb-4">
+                  The network learns by minimizing the difference between its prediction and the heuristic's evaluation:
+                </p>
+                
+                <div className="space-y-3">
+                  {/* Loss Function */}
+                  <div className="p-3 bg-slate-900 rounded-xl">
+                    <div className="text-xs text-slate-500 mb-1">Loss Function (Mean Squared Error)</div>
+                    <div className="font-mono text-cyan-300">L = (network_output - heuristic_target)²</div>
+                  </div>
+                  
+                  {/* Gradient Descent */}
+                  <div className="p-3 bg-slate-900 rounded-xl">
+                    <div className="text-xs text-slate-500 mb-1">Weight Update (Gradient Descent)</div>
+                    <div className="font-mono text-purple-300">w_new = w_old - η × ∂L/∂w</div>
+                    <div className="text-xs text-slate-500 mt-1">η = learning rate, ∂L/∂w = gradient (direction of steepest descent)</div>
+                  </div>
+                  
+                  {/* Process */}
+                  <div className="flex items-center gap-2 text-xs text-slate-400 mt-3">
+                    <span className="px-2 py-1 bg-cyan-500/20 rounded text-cyan-300">Position</span>
+                    <span>→</span>
+                    <span className="px-2 py-1 bg-purple-500/20 rounded text-purple-300">Network Predicts</span>
+                    <span>→</span>
+                    <span className="px-2 py-1 bg-amber-500/20 rounded text-amber-300">Compare to Heuristic</span>
+                    <span>→</span>
+                    <span className="px-2 py-1 bg-emerald-500/20 rounded text-emerald-300">Adjust Weights</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Why It's Faster */}
+              <div className="p-5 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 rounded-2xl border border-emerald-500/20">
+                <h3 className="font-bold text-emerald-400 mb-3 flex items-center gap-2">
+                  <span>🚀</span> Why It's Faster Than Reinforcement Learning
+                </h3>
+                
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="p-3 bg-slate-950/50 rounded-xl">
+                    <div className="text-red-400 font-bold text-sm mb-2">❌ Reinforcement Learning</div>
+                    <ul className="text-xs text-slate-400 space-y-1">
+                      <li>• Feedback only at game end</li>
+                      <li>• Must discover patterns from scratch</li>
+                      <li>• Needs millions of games</li>
+                      <li>• High variance in learning signal</li>
+                      <li>• AlphaZero: 44M games, 5000 TPUs</li>
+                    </ul>
+                  </div>
+                  <div className="p-3 bg-slate-950/50 rounded-xl">
+                    <div className="text-emerald-400 font-bold text-sm mb-2">✓ Supervised Learning</div>
+                    <ul className="text-xs text-slate-400 space-y-1">
+                      <li>• Feedback on every position</li>
+                      <li>• Leverages human chess knowledge</li>
+                      <li>• Learns in thousands of positions</li>
+                      <li>• Stable, consistent gradients</li>
+                      <li>• Minutes on a laptop</li>
+                    </ul>
+                  </div>
+                </div>
+                
+                <div className="p-3 bg-slate-900 rounded-xl">
+                  <div className="text-xs text-emerald-400 font-bold mb-1">Speed Comparison</div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <div className="text-xs text-slate-500 mb-1">RL Self-Play</div>
+                      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-red-500 w-full" />
+                      </div>
+                      <div className="text-[10px] text-slate-600 mt-1">~1,000,000+ games</div>
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-xs text-slate-500 mb-1">Supervised</div>
+                      <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-emerald-500 w-[5%]" />
+                      </div>
+                      <div className="text-[10px] text-slate-600 mt-1">~10,000 positions</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Trade-offs */}
+              <div className="p-4 bg-slate-950/50 rounded-2xl border border-yellow-500/20">
+                <h3 className="font-bold text-yellow-400 mb-2 flex items-center gap-2 text-sm">
+                  <span>⚖️</span> The Trade-off
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Supervised learning is fast but limited by the quality of the heuristic. The network can only be as good as its teacher. RL can potentially discover novel strategies beyond human knowledge, but requires massive compute. Many modern engines (like Stockfish NNUE) use a hybrid approach.
+                </p>
+              </div>
+              
+              {/* Close Button */}
+              <button
+                onClick={onClose}
+                className="w-full py-3 bg-amber-600 hover:bg-amber-500 rounded-2xl font-bold text-white transition-all"
+              >
+                Got It!
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
     const NeuralLab = ({ config, setConfig }) => {
       const [isTraining, setIsTraining] = useState(false);
       const [neuralStatus, setNeuralStatus] = useState(null);
@@ -961,9 +1560,31 @@
       const [logs, setLogs] = useState([]);
       const [testFen, setTestFen] = useState('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
       const [evaluation, setEvaluation] = useState(null);
-      const [neuralBlend, setNeuralBlend] = useState(0.5);
+      const [neuralBlend, setNeuralBlend] = useState(0); // Default to heuristic-only for reliable play
       const [networkSaved, setNetworkSaved] = useState(false);
       const [networkEnabled, setNetworkEnabled] = useState(false);
+      
+      // Supervised learning state
+      const [showSupervisedModal, setShowSupervisedModal] = useState(false);
+      const [supervisedPositions, setSupervisedPositions] = useState(5000);
+      const [isSupervisedTraining, setIsSupervisedTraining] = useState(false);
+      const [liveSupervisedEnabled, setLiveSupervisedEnabled] = useState(true);
+      const [supervisedProgress, setSupervisedProgress] = useState(null); // {phase, epoch, totalEpochs, pct, loss}
+      const [showSupervisedComplete, setShowSupervisedComplete] = useState(false);
+      const [supervisedResult, setSupervisedResult] = useState(null); // Final result for success banner
+      
+      // Checkpoint management state
+      const [checkpoints, setCheckpoints] = useState([]);
+      const [showCheckpointModal, setShowCheckpointModal] = useState(false);
+      const [checkpointName, setCheckpointName] = useState('');
+      const [checkpointDesc, setCheckpointDesc] = useState('');
+      const [loadingCheckpoint, setLoadingCheckpoint] = useState(false);
+      
+      // Hybrid training state
+      const [isHybridTraining, setIsHybridTraining] = useState(false);
+      const [hybridProgress, setHybridProgress] = useState(null);
+      const [hybridGames, setHybridGames] = useState(1000);
+      const [supervisedRatio, setSupervisedRatio] = useState(0.3);
 
       // Poll neural network status
       const [lastPhase, setLastPhase] = useState(null);
@@ -1126,7 +1747,9 @@
           if (data.ok) {
             setNetworkSaved(true);
             setNetworkEnabled(true);
+            setShowSupervisedComplete(false); // Clear the training complete banner
             addLog(`✅ Neural network saved and applied! Blend: ${(neuralBlend * 100).toFixed(0)}%`);
+            addLog(`🎮 Bot is now ready to play on Lichess with neural evaluation!`);
           } else {
             addLog(`❌ Error: ${data.error}`);
           }
@@ -1148,13 +1771,353 @@
         }
       };
 
+      // ==================== Checkpoint Management ====================
+      
+      const loadCheckpoints = async () => {
+        try {
+          const res = await fetch('http://localhost:5050/api/neural/checkpoints');
+          const data = await res.json();
+          if (data.ok) {
+            setCheckpoints(data.checkpoints || []);
+          }
+        } catch (e) {
+          console.error('Error loading checkpoints:', e);
+        }
+      };
+      
+      // Load checkpoints on mount and periodically
+      useEffect(() => {
+        loadCheckpoints();
+        const interval = setInterval(loadCheckpoints, 30000); // Refresh every 30s
+        return () => clearInterval(interval);
+      }, []);
+      
+      const saveCheckpoint = async () => {
+        if (!checkpointName.trim()) {
+          addLog('❌ Please enter a checkpoint name');
+          return;
+        }
+        
+        try {
+          const res = await fetch('http://localhost:5050/api/neural/checkpoint/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              name: checkpointName.trim(),
+              description: checkpointDesc.trim()
+            })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            addLog(`💾 Checkpoint saved: ${checkpointName} (${data.positions_trained} positions)`);
+            setCheckpointName('');
+            setCheckpointDesc('');
+            setShowCheckpointModal(false);
+            loadCheckpoints();
+          } else {
+            addLog(`❌ Error: ${data.error}`);
+          }
+        } catch (e) {
+          addLog(`❌ Error: ${e.message}`);
+        }
+      };
+      
+      const loadCheckpoint = async (filename, name) => {
+        if (!confirm(`Load checkpoint "${name}"? This will replace current network weights.`)) {
+          return;
+        }
+        
+        setLoadingCheckpoint(true);
+        try {
+          const res = await fetch('http://localhost:5050/api/neural/checkpoint/load', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            addLog(`✅ Loaded checkpoint: ${data.name} (${data.positions_trained} positions, v${data.version})`);
+            setNetworkSaved(false);
+          } else {
+            addLog(`❌ Error: ${data.error}`);
+          }
+        } catch (e) {
+          addLog(`❌ Error: ${e.message}`);
+        } finally {
+          setLoadingCheckpoint(false);
+        }
+      };
+      
+      const deleteCheckpoint = async (filename, name) => {
+        if (!confirm(`Delete checkpoint "${name}"? This cannot be undone.`)) {
+          return;
+        }
+        
+        try {
+          const res = await fetch('http://localhost:5050/api/neural/checkpoint/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename })
+          });
+          const data = await res.json();
+          if (data.ok) {
+            addLog(`🗑️ Deleted checkpoint: ${name}`);
+            loadCheckpoints();
+          } else {
+            addLog(`❌ Error: ${data.error}`);
+          }
+        } catch (e) {
+          addLog(`❌ Error: ${e.message}`);
+        }
+      };
+
+      // ==================== Hybrid Training ====================
+      
+      const startHybridTraining = async () => {
+        addLog(`🚀 Starting hybrid training: ${hybridGames} games...`);
+        setIsHybridTraining(true);
+        setNetworkSaved(false);
+        setHybridProgress({ phase: 'starting', games_completed: 0, total_games: hybridGames });
+        
+        try {
+          const res = await fetch('http://localhost:5050/api/neural/hybrid-train', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              total_games: hybridGames,
+              learning_rate: learningRate,
+              supervised_ratio: supervisedRatio,
+              save_interval: Math.max(50, Math.floor(hybridGames / 10))
+            })
+          });
+          const data = await res.json();
+          
+          if (data.ok) {
+            addLog(`✅ Hybrid training started!`);
+            
+            // Poll for status
+            let lastLoggedGame = 0;
+            const pollStatus = async () => {
+              try {
+                const statusRes = await fetch('http://localhost:5050/api/neural/hybrid-status');
+                const status = await statusRes.json();
+                
+                setHybridProgress(status);
+                
+                if (status.phase === 'self_play' || status.phase === 'rl_training') {
+                  // Log every 50 games
+                  if (status.games_completed >= lastLoggedGame + 50) {
+                    lastLoggedGame = status.games_completed;
+                    addLog(`🎮 Game ${status.games_completed}/${status.total_games} - ${status.positions_trained} positions, loss: ${status.current_loss?.toFixed(6) || 'N/A'}`);
+                  }
+                  setTimeout(pollStatus, 2000);
+                } else if (status.phase === 'complete') {
+                  addLog(`🎉 Hybrid training complete!`);
+                  addLog(`📊 ${status.games_completed} games, ${status.positions_trained} positions`);
+                  addLog(`📉 Best loss: ${status.best_loss?.toFixed(6) || 'N/A'}`);
+                  setIsHybridTraining(false);
+                  loadCheckpoints();
+                } else if (status.phase === 'error' || status.phase === 'stopped') {
+                  addLog(`⚠️ Training ${status.phase}: ${status.message || ''}`);
+                  setIsHybridTraining(false);
+                } else {
+                  setTimeout(pollStatus, 1000);
+                }
+              } catch (e) {
+                console.error('Hybrid status poll error:', e);
+                setTimeout(pollStatus, 3000);
+              }
+            };
+            
+            setTimeout(pollStatus, 1000);
+          } else {
+            addLog(`❌ Error: ${data.error}`);
+            setIsHybridTraining(false);
+          }
+        } catch (e) {
+          addLog(`❌ Error: ${e.message}`);
+          setIsHybridTraining(false);
+        }
+      };
+      
+      const stopHybridTraining = async () => {
+        try {
+          await fetch('http://localhost:5050/api/neural/hybrid-stop', { method: 'POST' });
+          addLog('⏹️ Stopping hybrid training...');
+        } catch (e) {
+          addLog(`❌ Error: ${e.message}`);
+        }
+      };
+
+      // Supervised learning training function
+      const startSupervisedTraining = async () => {
+        addLog('📚 Starting supervised learning from heuristic...');
+        setIsSupervisedTraining(true);
+        setNetworkSaved(false);
+        setShowSupervisedComplete(false);
+        setSupervisedProgress({ phase: 'starting', epoch: 0, totalEpochs: epochs, pct: 0, loss: 0 });
+
+        try {
+          // Start the training (returns immediately)
+          const response = await fetch('http://localhost:5050/api/neural/supervised-train', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              num_positions: supervisedPositions,
+              learning_rate: learningRate,
+              epochs: epochs
+            })
+          });
+          const data = await response.json();
+          
+          if (data.ok) {
+            addLog(`🚀 Supervised training started: ${supervisedPositions} positions, ${epochs} epochs`);
+            
+            // Poll for status until complete
+            let lastLoggedEpoch = 0;
+            const pollStatus = async () => {
+              try {
+                const statusRes = await fetch('http://localhost:5050/api/neural/supervised-status');
+                const status = await statusRes.json();
+                
+                if (status.phase === 'starting') {
+                  setSupervisedProgress({ phase: 'starting', epoch: 0, totalEpochs: status.total_epochs, pct: 0, loss: 0 });
+                  setTimeout(pollStatus, 1000);
+                } else if (status.phase === 'training') {
+                  const pct = Math.round((status.positions_trained / status.target_positions) * 100);
+                  setSupervisedProgress({ 
+                    phase: 'training', 
+                    epoch: status.current_epoch, 
+                    totalEpochs: status.total_epochs, 
+                    pct, 
+                    loss: status.current_loss,
+                    positions: status.positions_trained,
+                    targetPositions: status.target_positions
+                  });
+                  // Only log when epoch changes to avoid spam
+                  if (status.current_epoch > lastLoggedEpoch) {
+                    lastLoggedEpoch = status.current_epoch;
+                    addLog(`📊 Epoch ${status.current_epoch}/${status.total_epochs} - Loss: ${status.current_loss?.toFixed(6) || 'N/A'} (${pct}%)`);
+                  }
+                  // Continue polling
+                  setTimeout(pollStatus, 1500);
+                } else if (status.phase === 'complete') {
+                  addLog(`✅ Supervised training complete!`);
+                  addLog(`📈 Trained on ${status.positions_trained} positions`);
+                  addLog(`📉 Final loss: ${status.final_loss?.toFixed(6) || 'N/A'}`);
+                  addLog(`🔢 Network version: v${status.version}`);
+                  setSupervisedProgress(null);
+                  setSupervisedResult({
+                    positions: status.positions_trained,
+                    loss: status.final_loss,
+                    version: status.version
+                  });
+                  setShowSupervisedComplete(true);
+                  setIsSupervisedTraining(false);
+                  // Auto-hide success banner after 10 seconds
+                  setTimeout(() => setShowSupervisedComplete(false), 10000);
+                } else if (status.phase === 'error') {
+                  addLog(`❌ Training error occurred`);
+                  setSupervisedProgress(null);
+                  setIsSupervisedTraining(false);
+                } else {
+                  // Still idle or unknown, keep polling
+                  setTimeout(pollStatus, 1000);
+                }
+              } catch (e) {
+                console.error('Status poll error:', e);
+                setTimeout(pollStatus, 2000);
+              }
+            };
+            
+            // Start polling after a short delay
+            setTimeout(pollStatus, 500);
+          } else {
+            addLog(`❌ Error: ${data.error}`);
+            setSupervisedProgress(null);
+            setIsSupervisedTraining(false);
+          }
+        } catch (e) {
+          addLog(`❌ Connection error: ${e.message}`);
+          setSupervisedProgress(null);
+          setIsSupervisedTraining(false);
+        }
+      };
+
       const stats = neuralStatus?.network_stats || {};
       const dataStats = neuralStatus?.data_stats || {};
       const progress = neuralStatus?.progress_percent || 0;
 
       return (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 relative">
+          {/* Floating Training Status Banner */}
+          {(isSupervisedTraining || showSupervisedComplete) && (
+            <div className="lg:col-span-12 mb-2">
+              {isSupervisedTraining && supervisedProgress && (
+                <div className="p-4 bg-gradient-to-r from-amber-600/90 to-orange-600/90 rounded-2xl shadow-lg shadow-amber-500/20 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                      <span className="text-2xl animate-spin">⚙️</span>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-white">Supervised Training in Progress</div>
+                      <div className="text-sm text-amber-100">
+                        {supervisedProgress.phase === 'starting' 
+                          ? 'Initializing...' 
+                          : `Epoch ${supervisedProgress.epoch}/${supervisedProgress.totalEpochs} • ${supervisedProgress.pct}% complete`}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-3xl font-black text-white">{supervisedProgress.pct || 0}%</div>
+                    <div className="text-xs text-amber-200">Loss: {supervisedProgress.loss?.toFixed(4) || '...'}</div>
+                  </div>
+                </div>
+              )}
+              
+              {showSupervisedComplete && supervisedResult && !isSupervisedTraining && (
+                <div className="p-4 bg-gradient-to-r from-emerald-600/90 to-green-600/90 rounded-2xl shadow-lg shadow-emerald-500/20 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                      <span className="text-2xl">🎉</span>
+                    </div>
+                    <div>
+                      <div className="text-lg font-bold text-white">Training Complete!</div>
+                      <div className="text-sm text-emerald-100">
+                        Trained on {supervisedResult.positions} positions • Final loss: {supervisedResult.loss?.toFixed(6)} • Network v{supervisedResult.version}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="text-sm text-emerald-100 bg-white/10 px-3 py-1 rounded-lg">
+                      👉 Click "Save & Apply" to use on Lichess
+                    </div>
+                    <button 
+                      onClick={() => setShowSupervisedComplete(false)}
+                      className="text-white/70 hover:text-white text-2xl font-bold"
+                    >×</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          
           <div className="lg:col-span-7 space-y-6">
+            {/* Educational Disclaimer */}
+            <div className="p-4 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl border border-blue-500/20">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">🎓</span>
+                <div>
+                  <div className="font-bold text-white mb-1">Educational Demo</div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    This neural network training is for <span className="text-blue-300">learning how AI works</span>, not for making a strong chess bot. 
+                    Real chess neural networks (like AlphaZero) require millions of games and massive compute. 
+                    For actual gameplay, use <span className="text-emerald-300 font-bold">Heuristic Only</span> mode in "Apply to Bot" below.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
             {/* Main Training Panel */}
             <div className="glass rounded-[40px] p-10 shadow-2xl relative overflow-hidden bg-slate-900/40">
               <div className="absolute top-0 right-0 w-80 h-80 bg-cyan-600/5 blur-[120px] pointer-events-none" />
@@ -1162,155 +2125,349 @@
               <div className="flex items-center justify-between mb-8">
                 <div className="space-y-1">
                   <h2 className="text-3xl font-black text-white">Neural Network Training</h2>
-                  <p className="text-slate-500 font-medium">Deep learning position evaluation</p>
+                  <p className="text-slate-500 font-medium">Deep learning position evaluation (educational)</p>
                 </div>
                 <div className="glass px-4 py-2 rounded-2xl border-cyan-500/20">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400">Phase 2</span>
+                  <span className="text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400">Educational</span>
                 </div>
               </div>
 
-              {/* Training Controls */}
+              {/* SIMPLIFIED TRAINING - Hybrid is the main method */}
               <div className="space-y-6 mb-8">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Epochs</label>
-                    <input
-                      type="number" min="1" max="100" value={epochs}
-                      onChange={(e) => setEpochs(parseInt(e.target.value) || 20)}
-                      disabled={isTraining}
-                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
-                    />
+                
+                {/* Primary Training Method: Hybrid */}
+                <div className="p-5 bg-gradient-to-r from-purple-500/10 to-cyan-500/10 rounded-2xl border-2 border-purple-500/40 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">🔥</span>
+                      <div>
+                        <div className="text-lg font-bold text-white">Train Your Network</div>
+                        <div className="text-xs text-slate-400">Hybrid: supervised + reinforcement learning combined</div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Batch Size</label>
-                    <input
-                      type="number" min="8" max="128" value={batchSize}
-                      onChange={(e) => setBatchSize(parseInt(e.target.value) || 32)}
-                      disabled={isTraining}
-                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
-                    />
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-400">Number of Games</label>
+                      <input
+                        type="number" min="100" max="100000" step="100" value={hybridGames}
+                        onChange={(e) => setHybridGames(parseInt(e.target.value) || 1000)}
+                        disabled={isHybridTraining || isTraining || isSupervisedTraining}
+                        className="w-full bg-slate-950 border border-purple-500/30 rounded-xl px-3 py-2 text-white font-mono text-sm disabled:opacity-50"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-slate-400">Learning Rate</label>
+                      <input
+                        type="number" min="0.001" max="0.1" step="0.001" value={learningRate}
+                        onChange={(e) => setLearningRate(parseFloat(e.target.value) || 0.01)}
+                        disabled={isHybridTraining || isTraining || isSupervisedTraining}
+                        className="w-full bg-slate-950 border border-purple-500/30 rounded-xl px-3 py-2 text-white font-mono text-sm disabled:opacity-50"
+                      />
+                    </div>
                   </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Learning Rate</label>
-                    <input
-                      type="number" min="0.001" max="0.1" step="0.001" value={learningRate}
-                      onChange={(e) => setLearningRate(parseFloat(e.target.value) || 0.01)}
-                      disabled={isTraining}
-                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
-                    />
+                  
+                  <div className="p-3 bg-slate-950/50 rounded-xl text-xs text-slate-400">
+                    <span className="text-purple-300 font-bold">How it works:</span> Plays self-play games, learning from both the heuristic evaluation (immediate feedback) and game outcomes (long-term strategy). 
+                    <span className="text-amber-300"> Training is cumulative</span> - each session adds to previous learning.
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Self-Play Games</label>
-                    <input
-                      type="number" min="10" max="500" value={selfPlayGames}
-                      onChange={(e) => setSelfPlayGames(parseInt(e.target.value) || 100)}
-                      disabled={isTraining}
-                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-mono disabled:opacity-50"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={includeSelfPlay}
-                    onChange={(e) => setIncludeSelfPlay(e.target.checked)}
-                    disabled={isTraining}
-                    className="w-5 h-5 rounded bg-slate-950 border-white/10"
-                  />
-                  <label className="text-sm text-slate-300">Generate self-play games for training data</label>
-                </div>
-
-                <div className="flex gap-3">
-                  {!isTraining ? (
+                  
+                  {!isHybridTraining ? (
                     <button
-                      onClick={startTraining}
-                      className="flex-1 py-4 bg-cyan-600 hover:bg-cyan-500 rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all"
+                      onClick={startHybridTraining}
+                      disabled={isTraining || isSupervisedTraining}
+                      className="w-full py-4 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 disabled:from-slate-700 disabled:to-slate-700 rounded-xl font-bold text-white text-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
                     >
-                      <span>🧠</span> Start Neural Training
+                      <span>🚀</span> Start Training ({hybridGames.toLocaleString()} games)
                     </button>
                   ) : (
                     <button
-                      onClick={stopTraining}
-                      className="flex-1 py-4 bg-red-600 hover:bg-red-500 rounded-2xl font-bold text-white flex items-center justify-center gap-3 transition-all"
+                      onClick={stopHybridTraining}
+                      className="w-full py-4 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-white text-lg transition-all flex items-center justify-center gap-2"
                     >
-                      ⏹ Stop Training
+                      <span>⏹</span> Stop & Save Progress
                     </button>
                   )}
-                  <button
-                    onClick={resetNetwork}
-                    disabled={isTraining}
-                    className="px-6 py-4 bg-slate-700 hover:bg-slate-600 rounded-2xl font-bold text-white transition-all disabled:opacity-50"
-                  >
-                    🔄 Reset
-                  </button>
+                  
+                  {/* Hybrid Training Progress */}
+                  {hybridProgress && hybridProgress.phase !== 'idle' && (
+                    <div className="p-4 bg-gradient-to-r from-purple-500/20 to-cyan-500/20 rounded-xl border border-purple-400/30">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xl animate-pulse">🎮</span>
+                          <div>
+                            <div className="text-sm font-bold text-purple-200">
+                              {hybridProgress.phase === 'self_play' ? 'Playing & Learning...' : 
+                               hybridProgress.phase === 'rl_training' ? 'Reinforcement Learning...' :
+                               hybridProgress.phase === 'complete' ? 'Complete!' :
+                               hybridProgress.phase === 'stopped' ? 'Stopped & Saved' :
+                               hybridProgress.message || 'Training...'}
+                            </div>
+                            <div className="text-xs text-purple-300/70">
+                              Game {hybridProgress.games_completed || 0}/{hybridProgress.total_games || hybridGames}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-2xl font-black text-purple-300">
+                            {Math.round(((hybridProgress.games_completed || 0) / (hybridProgress.total_games || hybridGames)) * 100)}%
+                          </div>
+                          <div className="text-[10px] text-purple-400/60">
+                            {(hybridProgress.positions_trained || 0).toLocaleString()} pos
+                          </div>
+                        </div>
+                      </div>
+                      <div className="h-3 bg-slate-900/50 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-purple-500 to-cyan-400 rounded-full transition-all duration-500"
+                          style={{ width: `${((hybridProgress.games_completed || 0) / (hybridProgress.total_games || hybridGames)) * 100}%` }}
+                        />
+                      </div>
+                      <div className="mt-2 flex justify-between text-[10px] text-slate-500">
+                        <span>Loss: {hybridProgress.current_loss?.toFixed(6) || 'N/A'}</span>
+                        <span>Best: {hybridProgress.best_loss?.toFixed(6) || 'N/A'}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
+
+                {/* Advanced Options - Collapsible */}
+                <details className="group">
+                  <summary className="cursor-pointer p-3 bg-slate-800/50 rounded-xl text-sm text-slate-400 hover:text-white transition-all flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <span>⚙️</span> Advanced Training Options
+                    </span>
+                    <span className="group-open:rotate-180 transition-transform">▼</span>
+                  </summary>
+                  
+                  <div className="mt-4 space-y-4 p-4 bg-slate-900/30 rounded-xl border border-white/5">
+                    {/* Supervised Learning Quick Train */}
+                    <div className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/20 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-400">📚</span>
+                          <div>
+                            <div className="text-sm font-bold text-amber-300">Quick Supervised Training</div>
+                            <div className="text-[10px] text-slate-500">Fast training from heuristic (supplements hybrid)</div>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setShowSupervisedModal(true)}
+                          className="text-xs text-amber-400 hover:text-amber-300"
+                        >ℹ️</button>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number" min="1000" max="50000" step="1000" value={supervisedPositions}
+                          onChange={(e) => setSupervisedPositions(parseInt(e.target.value) || 5000)}
+                          disabled={isTraining || isSupervisedTraining || isHybridTraining}
+                          className="flex-1 bg-slate-950 border border-amber-500/20 rounded-lg px-3 py-2 text-white font-mono text-sm disabled:opacity-50"
+                        />
+                        <button
+                          onClick={startSupervisedTraining}
+                          disabled={isTraining || isSupervisedTraining || isHybridTraining}
+                          className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-slate-700 rounded-lg font-bold text-white text-sm transition-all disabled:opacity-50"
+                        >
+                          {isSupervisedTraining ? '⟳' : '⚡'} Train
+                        </button>
+                      </div>
+                      
+                      {/* Supervised Progress */}
+                      {supervisedProgress && (
+                        <div className="p-3 bg-amber-500/10 rounded-lg">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-amber-300">Epoch {supervisedProgress.epoch}/{supervisedProgress.totalEpochs}</span>
+                            <span className="text-amber-400">{supervisedProgress.pct}%</span>
+                          </div>
+                          <div className="h-2 bg-slate-900 rounded-full overflow-hidden">
+                            <div className="h-full bg-amber-500 transition-all" style={{ width: `${supervisedProgress.pct}%` }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Legacy RL Training */}
+                    <div className="p-4 bg-slate-800/30 rounded-xl border border-white/5 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-400">🎮</span>
+                        <div>
+                          <div className="text-sm font-bold text-slate-300">Legacy RL Training</div>
+                          <div className="text-[10px] text-slate-500">Pure reinforcement learning (slower, use Hybrid instead)</div>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500">Epochs</label>
+                          <input
+                            type="number" min="1" max="100" value={epochs}
+                            onChange={(e) => setEpochs(parseInt(e.target.value) || 20)}
+                            disabled={isTraining || isHybridTraining}
+                            className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-white font-mono text-xs disabled:opacity-50"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500">Self-Play Games</label>
+                          <input
+                            type="number" min="10" max="500" value={selfPlayGames}
+                            onChange={(e) => setSelfPlayGames(parseInt(e.target.value) || 100)}
+                            disabled={isTraining || isHybridTraining}
+                            className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-white font-mono text-xs disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex gap-2">
+                        <button
+                          onClick={startTraining}
+                          disabled={isTraining || isHybridTraining || isSupervisedTraining}
+                          className="flex-1 py-2 bg-red-600/50 hover:bg-red-600 disabled:bg-slate-700 rounded-lg font-bold text-white text-xs transition-all disabled:opacity-50"
+                        >
+                          {isTraining ? '⟳ Training...' : '🎮 Start RL'}
+                        </button>
+                        <button
+                          onClick={resetNetwork}
+                          disabled={isTraining || isHybridTraining}
+                          className="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-slate-300 transition-all disabled:opacity-50"
+                        >
+                          🔄 Reset
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Training Parameters */}
+                    <div className="p-3 bg-slate-800/30 rounded-xl">
+                      <div className="text-xs text-slate-500 mb-2">Advanced Parameters</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500">Batch Size</label>
+                          <input
+                            type="number" min="8" max="128" value={batchSize}
+                            onChange={(e) => setBatchSize(parseInt(e.target.value) || 32)}
+                            disabled={isTraining || isHybridTraining}
+                            className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-white font-mono text-xs disabled:opacity-50"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500">Supervised Ratio</label>
+                          <input
+                            type="number" min="0" max="1" step="0.1" value={supervisedRatio}
+                            onChange={(e) => setSupervisedRatio(parseFloat(e.target.value) || 0.3)}
+                            disabled={isHybridTraining}
+                            className="w-full bg-slate-950 border border-white/10 rounded-lg px-2 py-1.5 text-white font-mono text-xs disabled:opacity-50"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </details>
               </div>
 
-              {/* Progress */}
-              <div className="space-y-4">
-                {/* Current Phase Indicator */}
-                {isTraining && (
-                  <div className="flex items-center gap-3 p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
-                    <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                    <span className="text-sm text-cyan-300">
-                      {neuralStatus?.current_phase === 'self_play' && (
-                        <>Generating self-play games: {neuralStatus?.self_play?.games_completed || 0}/{neuralStatus?.self_play?.games_target || selfPlayGames}</>
-                      )}
-                      {neuralStatus?.current_phase === 'training' && (
-                        <>Training epoch {neuralStatus?.epochs_completed || 0}/{neuralStatus?.target_epochs || epochs}</>
-                      )}
-                      {neuralStatus?.current_phase === 'starting' && 'Initializing...'}
-                      {neuralStatus?.current_phase === 'complete' && '✓ Training complete!'}
-                    </span>
-                  </div>
-                )}
-                
-                <div className="flex justify-between text-sm">
-                  <span className="text-slate-400">Overall Progress</span>
-                  <span className="font-mono text-cyan-400">
-                    {neuralStatus?.current_phase === 'self_play' 
-                      ? `Self-play: ${neuralStatus?.self_play?.games_completed || 0}/${neuralStatus?.self_play?.games_target || selfPlayGames} games`
-                      : `${neuralStatus?.epochs_completed || 0}/${neuralStatus?.target_epochs || epochs} epochs`
-                    }
-                  </span>
+              {/* Overall Progress - simplified */}
+              <div className="border-t border-white/5 pt-6">
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-slate-400">Total Positions Trained</span>
+                  <span className="font-mono text-cyan-400 font-bold">{(neuralStatus?.network_stats?.positions_trained || stats.positions_trained || 0).toLocaleString()}</span>
                 </div>
-                <div className="h-4 bg-slate-950 rounded-full overflow-hidden border border-white/5">
-                  <div
-                    style={{ width: `${Math.min(100, progress)}%` }}
-                    className="h-full bg-gradient-to-r from-cyan-600 to-blue-500 transition-all duration-500"
-                  />
-                </div>
-                <div className="flex justify-between text-xs text-slate-500">
-                  <span>Loss: <span className="text-cyan-400 font-bold">{(neuralStatus?.current_loss || 0).toFixed(6)}</span></span>
-                  <span>Positions: <span className="text-cyan-400 font-bold">{stats.positions_trained || 0}</span></span>
-                  <span>{progress.toFixed(0)}% complete</span>
+                <div className="flex justify-between text-sm mb-2">
+                  <span className="text-slate-400">Average Loss</span>
+                  <span className="font-mono text-purple-400">{(neuralStatus?.network_stats?.avg_loss || stats.avg_loss || 0).toFixed(6)}</span>
                 </div>
               </div>
             </div>
 
-            {/* Logs */}
-            <div className="glass rounded-[32px] p-8 h-[250px] flex flex-col bg-black/20">
-              <h3 className="font-bold text-sm uppercase tracking-widest mb-6 flex items-center gap-3 text-slate-400">
-                <span className="text-cyan-400">›</span> Neural Training Log
-              </h3>
-              <div className="flex-1 overflow-y-auto space-y-1 mono text-[11px] text-slate-400 custom-scrollbar">
-                {logs.length === 0 && <div className="italic text-slate-600">Configure parameters and start training...</div>}
-                {logs.map((log, i) => (
-                  <div key={i} className="flex gap-2">
-                    <span className="text-cyan-500 shrink-0 opacity-50">›</span>
-                    <span>{log}</span>
-                  </div>
-                ))}
+            {/* Log Output */}
+            <div className="glass rounded-[32px] p-6 shadow-xl">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3 text-white">
+                  <span className="text-slate-400">📋</span>
+                  <h3 className="font-bold">Training Log</h3>
+                </div>
+                <button 
+                  onClick={() => setLogs([])}
+                  className="text-xs text-slate-500 hover:text-white"
+                >Clear</button>
+              </div>
+              <div className="h-32 overflow-y-auto custom-scrollbar bg-slate-950/50 rounded-xl p-3 font-mono text-xs space-y-1">
+                {logs.length === 0 ? (
+                  <div className="text-slate-600">Training logs will appear here...</div>
+                ) : (
+                  logs.slice(-20).map((log, i) => (
+                    <div key={i} className="text-slate-400">{log}</div>
+                  ))
+                )}
               </div>
             </div>
           </div>
-
+          
           {/* Sidebar */}
           <div className="lg:col-span-5 space-y-6">
+            {/* LICHESS BOT STATUS - Most Important Info */}
+            <div className="glass rounded-[32px] p-6 shadow-xl border-2 border-emerald-500/50 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                  <span className="text-xl">🤖</span>
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-white">Lichess Bot Status</h3>
+                  <p className="text-xs text-slate-400">What your bot is currently using</p>
+                </div>
+              </div>
+              
+              {/* Current Mode */}
+              <div className="p-4 bg-slate-950/70 rounded-xl mb-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-slate-400">Current Mode</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                    neuralBlend === 0 
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+                      : 'bg-purple-500/20 text-purple-300 border border-purple-500/30'
+                  }`}>
+                    {neuralBlend === 0 ? '🎯 Heuristic Only' : `🧪 ${(neuralBlend * 100).toFixed(0)}% Neural`}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-500">
+                  {neuralBlend === 0 
+                    ? 'Using proven mathematical evaluation (recommended for actual play)'
+                    : 'Using experimental neural network blend (educational)'
+                  }
+                </div>
+              </div>
+              
+              {/* Network Info */}
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="p-3 bg-slate-950/50 rounded-xl text-center">
+                  <div className="text-2xl font-black text-cyan-400">
+                    {(neuralStatus?.network_stats?.positions_trained || stats.positions_trained || 0).toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider">Positions Trained</div>
+                </div>
+                <div className="p-3 bg-slate-950/50 rounded-xl text-center">
+                  <div className="text-2xl font-black text-purple-400">
+                    v{neuralStatus?.network_stats?.version || stats.version || 0}
+                  </div>
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider">Network Version</div>
+                </div>
+              </div>
+              
+              {/* Status Indicator */}
+              <div className={`p-3 rounded-xl flex items-center gap-3 ${
+                networkSaved 
+                  ? 'bg-emerald-500/10 border border-emerald-500/30' 
+                  : 'bg-amber-500/10 border border-amber-500/30'
+              }`}>
+                <div className={`w-3 h-3 rounded-full ${networkSaved ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+                <span className={`text-sm ${networkSaved ? 'text-emerald-300' : 'text-amber-300'}`}>
+                  {networkSaved 
+                    ? '✓ Settings applied to Lichess bot' 
+                    : '⚠️ Changes not yet applied - click "Save & Apply" below'
+                  }
+                </span>
+              </div>
+            </div>
+
             {/* Live Chessboard during self-play */}
             {isTraining && neuralStatus?.current_phase === 'self_play' && (
               neuralStatus?.current_game ? (
@@ -1416,6 +2573,48 @@
                 </div>
                 
                 <div className="space-y-4">
+                  {/* Quick Mode Buttons */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        updateNeuralBlend(0);
+                        addLog('🎯 Switched to Heuristic Only mode (recommended)');
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                        neuralBlend === 0 
+                          ? 'bg-emerald-600 text-white' 
+                          : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                      }`}
+                    >
+                      🎯 Heuristic Only
+                    </button>
+                    <button
+                      onClick={() => {
+                        updateNeuralBlend(0.3);
+                        addLog('🧪 Switched to Experimental mode (30% neural)');
+                      }}
+                      className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                        neuralBlend > 0 
+                          ? 'bg-purple-600 text-white' 
+                          : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                      }`}
+                    >
+                      🧪 Experimental
+                    </button>
+                  </div>
+                  
+                  {neuralBlend === 0 && (
+                    <div className="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20 text-xs text-emerald-300">
+                      ✅ <span className="font-bold">Recommended:</span> Using proven heuristic evaluation. The bot will play solid chess based on material, position, and king safety.
+                    </div>
+                  )}
+                  
+                  {neuralBlend > 0 && (
+                    <div className="p-3 bg-amber-500/10 rounded-xl border border-amber-500/20 text-xs text-amber-300">
+                      ⚠️ <span className="font-bold">Experimental:</span> Neural network is for educational purposes. It requires millions of training positions to play well. Current training is insufficient for good play.
+                    </div>
+                  )}
+                  
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <label className="text-slate-400">Neural Network Blend</label>
@@ -1435,11 +2634,6 @@
                     </div>
                   </div>
                   
-                  <p className="text-xs text-slate-400">
-                    Controls how much the bot relies on the neural network vs traditional heuristics. 
-                    Start with 50% to blend both approaches.
-                  </p>
-                  
                   <button
                     onClick={saveAndApplyNetwork}
                     disabled={isTraining}
@@ -1452,15 +2646,121 @@
                     {networkSaved ? '✓ Saved & Applied!' : '💾 Save & Apply to Bot'}
                   </button>
                   
-                  {networkEnabled && (
+                  {networkEnabled && neuralBlend === 0 && (
                     <div className="flex items-center gap-2 p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
                       <div className="w-2 h-2 rounded-full bg-emerald-400" />
-                      <span className="text-sm text-emerald-300">Neural network active on Lichess bot</span>
+                      <span className="text-sm text-emerald-300">Bot using heuristic evaluation (solid play)</span>
                     </div>
                   )}
+                  
+                  {networkEnabled && neuralBlend > 0 && (
+                    <div className="flex items-center gap-2 p-3 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                      <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                      <span className="text-sm text-amber-300">Bot using experimental neural blend</span>
+                    </div>
+                  )}
+                  
+                  {/* Live Supervised Learning Toggle */}
+                  <div className="p-4 bg-amber-500/5 rounded-xl border border-amber-500/20 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-400">📚</span>
+                        <div>
+                          <div className="text-sm font-bold text-amber-300">Live Supervised Learning</div>
+                          <div className="text-[10px] text-slate-500">Learn from heuristic during games</div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          const newState = !liveSupervisedEnabled;
+                          setLiveSupervisedEnabled(newState);
+                          try {
+                            await fetch('http://localhost:5050/api/neural/live-supervised', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ enabled: newState })
+                            });
+                            addLog(`📚 Live supervised learning ${newState ? 'ENABLED' : 'DISABLED'}`);
+                          } catch (e) {
+                            console.error('Error toggling live supervised:', e);
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                          liveSupervisedEnabled 
+                            ? 'bg-amber-500 text-white' 
+                            : 'bg-slate-700 text-slate-400'
+                        }`}
+                      >
+                        {liveSupervisedEnabled ? 'ON' : 'OFF'}
+                      </button>
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-relaxed">
+                      When enabled, the network learns from the heuristic evaluation on every move during live Lichess games. This accelerates learning but uses more CPU.
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
+            
+            {/* Checkpoint Management */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-purple-500/20 bg-purple-500/5">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3 text-white">
+                  <span className="text-purple-400">📦</span>
+                  <h3 className="font-bold text-xl">Checkpoints</h3>
+                </div>
+                <button
+                  onClick={() => setShowCheckpointModal(true)}
+                  disabled={isTraining || isSupervisedTraining || (neuralStatus?.network_stats?.positions_trained || 0) === 0}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:opacity-50 rounded-lg text-xs font-bold text-white transition-all"
+                >
+                  + Save Checkpoint
+                </button>
+              </div>
+              
+              <p className="text-xs text-slate-400 mb-4">
+                Save snapshots of your network to restore later. Useful before trying different training methods.
+              </p>
+              
+              {checkpoints.length === 0 ? (
+                <div className="text-center py-6 text-slate-500 text-sm">
+                  No checkpoints saved yet
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
+                  {checkpoints.map((cp, i) => (
+                    <div key={i} className="p-3 bg-slate-950/50 rounded-xl border border-white/5 hover:border-purple-500/30 transition-all">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-white text-sm truncate flex-1">{cp.name}</span>
+                        <div className="flex items-center gap-1 ml-2">
+                          <button
+                            onClick={() => loadCheckpoint(cp.filename, cp.name)}
+                            disabled={loadingCheckpoint}
+                            className="px-2 py-1 bg-purple-600/50 hover:bg-purple-500 rounded text-[10px] font-bold text-white transition-all disabled:opacity-50"
+                          >
+                            {loadingCheckpoint ? '...' : 'Load'}
+                          </button>
+                          <button
+                            onClick={() => deleteCheckpoint(cp.filename, cp.name)}
+                            className="px-2 py-1 bg-red-600/30 hover:bg-red-500 rounded text-[10px] font-bold text-red-300 hover:text-white transition-all"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3 text-[10px] text-slate-500">
+                        <span>{cp.positions_trained.toLocaleString()} pos</span>
+                        <span>v{cp.version}</span>
+                        <span>Loss: {cp.avg_loss?.toFixed(4) || 'N/A'}</span>
+                      </div>
+                      {cp.description && (
+                        <div className="text-[10px] text-slate-600 mt-1 truncate">{cp.description}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             {/* Position Evaluator */}
             <div className="glass rounded-[32px] p-8 shadow-xl border-blue-500/20 bg-blue-500/5">
@@ -1504,26 +2804,227 @@
               <div className="flex items-center gap-3 mb-6 text-white">
                 <span className="text-purple-400">📖</span>
                 <h3 className="font-bold text-xl">How It Works</h3>
+                <button 
+                  onClick={() => setShowMathModal && setShowMathModal(true)}
+                  className="ml-auto text-xs px-3 py-1 bg-purple-500/20 hover:bg-purple-500/30 rounded-full text-purple-300 transition-all"
+                >
+                  📐 View Math
+                </button>
               </div>
               <div className="space-y-4 text-sm text-slate-300">
                 <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
-                  <div className="font-bold text-purple-400 mb-1">Input Layer (833 features)</div>
-                  <p className="text-xs text-slate-400">768 piece positions + material balance + piece counts + mobility + king safety. The network "sees" rich position features.</p>
+                  <div className="font-bold text-purple-400 mb-1">🎮 Reinforcement Learning (Self-Play)</div>
+                  <p className="text-xs text-slate-400">This tab uses <span className="text-purple-300">reinforcement learning</span> - the network learns by playing against itself and receiving rewards based on game outcomes. This is how AlphaZero learned chess from scratch.</p>
                 </div>
                 <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
-                  <div className="font-bold text-purple-400 mb-1">Hidden Layers (512 → 128 → 32)</div>
-                  <p className="text-xs text-slate-400">Three layers learn patterns: piece coordination, pawn structure, king safety. Each neuron detects a specific feature.</p>
+                  <div className="font-bold text-purple-400 mb-1">⚠️ The Challenge: Sparse Rewards</div>
+                  <p className="text-xs text-slate-400">Unlike supervised learning where every position has a "correct answer," RL only gets feedback at game end. The network must figure out which moves led to wins - this requires <span className="text-yellow-400">millions of games</span> to learn effectively.</p>
                 </div>
                 <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
-                  <div className="font-bold text-purple-400 mb-1">Output (1 neuron)</div>
-                  <p className="text-xs text-slate-400">A single value from -1 to +1. Positive = white advantage, negative = black advantage.</p>
+                  <div className="font-bold text-purple-400 mb-1">📊 Why 1000 Games Isn't Enough</div>
+                  <p className="text-xs text-slate-400">AlphaZero used 5,000 TPUs playing 44 million games. Our self-play at depth 2 generates mostly random positions. The network needs diverse tactical positions to learn piece values and threats.</p>
                 </div>
                 <div className="p-3 bg-slate-950/50 rounded-xl border border-white/5">
-                  <div className="font-bold text-purple-400 mb-1">Material-Aware Learning</div>
-                  <p className="text-xs text-slate-400">Bad trades (queen for pawn) are punished immediately, not just based on game outcome. This teaches the network piece values fast.</p>
+                  <div className="font-bold text-purple-400 mb-1">⚡ Material-Aware Training</div>
+                  <p className="text-xs text-slate-400">We improve on pure RL by giving <span className="text-emerald-400">immediate feedback</span> for material changes. Losing a queen is punished right away, not just when the game ends. This accelerates learning.</p>
+                </div>
+                <div className="p-3 bg-slate-950/50 rounded-xl border border-amber-500/30 border-dashed">
+                  <div className="font-bold text-amber-400 mb-1">💡 Training Tips</div>
+                  <p className="text-xs text-slate-400">For best results: (1) Train 10,000+ games, (2) Use higher search depth in self-play, (3) Play real games on Lichess - the bot learns from actual mistakes against humans.</p>
                 </div>
               </div>
             </div>
+
+            {/* Network Architecture Visualization */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-cyan-500/20 bg-cyan-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-cyan-400">🧠</span>
+                <h3 className="font-bold text-xl">Network Architecture</h3>
+              </div>
+              <NeuralNetworkDiagram 
+                inputSize={833} 
+                hidden1={512} 
+                hidden2={128} 
+                hidden3={32} 
+                output={1} 
+              />
+              <div className="mt-4 space-y-2">
+                <div className="p-2 bg-slate-950/50 rounded-lg">
+                  <div className="text-xs text-cyan-400 font-bold">Input Layer (833 features)</div>
+                  <div className="text-[10px] text-slate-500 mt-1">768 piece positions + 1 side to move + 1 material balance + 12 piece counts + 1 check + 4 castling + 4 game phase + 2 mobility + 2 center + 2 king safety + padding</div>
+                </div>
+                <div className="p-2 bg-slate-950/50 rounded-lg">
+                  <div className="text-xs text-purple-400 font-bold">Hidden Layers (Leaky ReLU)</div>
+                  <div className="text-[10px] text-slate-500 mt-1">512 → 128 → 32 neurons. Each layer learns increasingly abstract patterns.</div>
+                </div>
+                <div className="p-2 bg-slate-950/50 rounded-lg">
+                  <div className="text-xs text-emerald-400 font-bold">Output Layer (Tanh)</div>
+                  <div className="text-[10px] text-slate-500 mt-1">Single value in [-1, +1]. Scaled to centipawns (×1000) for compatibility.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Mathematical Formulas */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-amber-500/20 bg-amber-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-amber-400">∑</span>
+                <h3 className="font-bold text-xl">The Mathematics</h3>
+              </div>
+              <div className="space-y-3">
+                <MathFormula 
+                  title="Forward Pass"
+                  formula="h₁ = LeakyReLU(W₁ · x + b₁)"
+                  description="Each layer transforms input through weights, adds bias, then applies activation function."
+                  variables={[
+                    { symbol: 'x', meaning: 'input features (833)' },
+                    { symbol: 'W₁', meaning: 'weight matrix' },
+                    { symbol: 'b₁', meaning: 'bias vector' },
+                    { symbol: 'h₁', meaning: 'hidden activations' }
+                  ]}
+                />
+                <MathFormula 
+                  title="Loss Function (MSE)"
+                  formula="L = (output - target)²"
+                  description="Mean Squared Error measures how far the prediction is from the target."
+                  variables={[
+                    { symbol: 'L', meaning: 'loss value' },
+                    { symbol: 'output', meaning: 'network prediction' },
+                    { symbol: 'target', meaning: 'desired value' }
+                  ]}
+                />
+                <MathFormula 
+                  title="Weight Update (SGD)"
+                  formula="w_new = w_old - η × ∂L/∂w"
+                  description="Gradient descent adjusts weights in the direction that reduces loss."
+                  variables={[
+                    { symbol: 'η', meaning: 'learning rate' },
+                    { symbol: '∂L/∂w', meaning: 'gradient of loss' }
+                  ]}
+                />
+                <MathFormula 
+                  title="Reward Signal"
+                  formula="target = α × material_signal + (1-α) × outcome_signal"
+                  description="Combines immediate material feedback with long-term game outcome."
+                  variables={[
+                    { symbol: 'α', meaning: 'material weight (0.7-0.9 for captures)' },
+                    { symbol: 'material_signal', meaning: 'normalized material change' },
+                    { symbol: 'outcome_signal', meaning: 'win=1, draw=0, loss=-1' }
+                  ]}
+                />
+              </div>
+            </div>
+
+            {/* Activation Functions */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-cyan-500/20 bg-cyan-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-cyan-400">📈</span>
+                <h3 className="font-bold text-xl">Activation Functions</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <ActivationViz type="leaky_relu" />
+                <ActivationViz type="tanh" />
+              </div>
+              <div className="mt-4 p-3 bg-slate-950/50 rounded-xl text-xs text-slate-400">
+                <span className="text-cyan-400 font-bold">Why these?</span> Leaky ReLU prevents "dead neurons" in hidden layers. Tanh bounds output to [-1,1] for stable training.
+              </div>
+            </div>
+
+            {/* Piece Values Reference */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-emerald-500/20 bg-emerald-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-emerald-400">♛</span>
+                <h3 className="font-bold text-xl">Piece Values</h3>
+              </div>
+              <PieceValueChart />
+              <div className="mt-4 p-3 bg-slate-950/50 rounded-xl text-xs text-slate-400">
+                <span className="text-emerald-400 font-bold">Learning Goal:</span> The network should learn these values through self-play. A queen loss (-900) should produce a strongly negative evaluation.
+              </div>
+            </div>
+
+            {/* Training Methods Comparison */}
+            <div className="glass rounded-[32px] p-8 shadow-xl border-blue-500/20 bg-blue-500/5">
+              <div className="flex items-center gap-3 mb-6 text-white">
+                <span className="text-blue-400">🎓</span>
+                <h3 className="font-bold text-xl">Training Methods Compared</h3>
+              </div>
+              <div className="space-y-4 text-sm text-slate-300">
+                <div className="p-4 bg-slate-950/50 rounded-xl border border-white/5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-blue-400">📊</span>
+                    <div className="font-bold text-blue-400">1. Supervised Learning</div>
+                    <span className="ml-auto text-[10px] px-2 py-0.5 bg-blue-500/20 rounded-full text-blue-300">Train Tab</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-2">Uses hand-crafted evaluation functions with known piece values. Fast to optimize but limited by human knowledge.</p>
+                  <div className="text-[10px] font-mono text-slate-500 p-2 bg-slate-900 rounded">
+                    eval = Σ(piece_values) + mobility × weight + king_safety
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-slate-950/50 rounded-xl border border-purple-500/30">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-purple-400">🎮</span>
+                    <div className="font-bold text-purple-400">2. Reinforcement Learning</div>
+                    <span className="ml-auto text-[10px] px-2 py-0.5 bg-purple-500/20 rounded-full text-purple-300">This Tab ⬅️</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-2">Learns from game outcomes through self-play. Can discover novel strategies but requires massive compute.</p>
+                  <div className="text-[10px] font-mono text-slate-500 p-2 bg-slate-900 rounded">
+                    reward = game_outcome × discount^(moves_to_end)
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-slate-950/50 rounded-xl border border-white/5">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-emerald-400">🔄</span>
+                    <div className="font-bold text-emerald-400">3. NNUE (Hybrid)</div>
+                    <span className="ml-auto text-[10px] px-2 py-0.5 bg-emerald-500/20 rounded-full text-emerald-300">Stockfish</span>
+                  </div>
+                  <p className="text-xs text-slate-400 mb-2">Neural network trained on positions evaluated by the engine itself. Best of both worlds.</p>
+                  <div className="text-[10px] font-mono text-slate-500 p-2 bg-slate-900 rounded">
+                    target = engine_search(position, depth=12)
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Live Reward Signal (when training) */}
+            {isTraining && (
+              <div className="glass rounded-[32px] p-8 shadow-xl border-amber-500/20 bg-amber-500/5">
+                <div className="flex items-center gap-3 mb-6 text-white">
+                  <span className="text-amber-400">⚡</span>
+                  <h3 className="font-bold text-xl">Live Training Signal</h3>
+                </div>
+                <RewardSignalViz 
+                  materialChange={neuralStatus?.current_game?.material_white - neuralStatus?.current_game?.material_black || 0}
+                  gameOutcome={0.5}
+                  isCapture={false}
+                />
+              </div>
+            )}
+
+            {/* Backpropagation Visualization (when training) */}
+            {isTraining && neuralStatus?.current_phase === 'training' && (
+              <div className="glass rounded-[32px] p-8 shadow-xl border-purple-500/20 bg-purple-500/5">
+                <div className="flex items-center gap-3 mb-6 text-white">
+                  <span className="text-purple-400">🔙</span>
+                  <h3 className="font-bold text-xl">Backpropagation</h3>
+                </div>
+                <BackpropViz 
+                  loss={neuralStatus?.current_loss || 0.1}
+                  learningRate={learningRate}
+                />
+              </div>
+            )}
+
+            {/* Training History Chart */}
+            {(neuralStatus?.training_history?.length > 0 || stats.positions_trained > 0) && (
+              <div className="glass rounded-[32px] p-8 shadow-xl border-purple-500/20 bg-purple-500/5">
+                <div className="flex items-center gap-3 mb-6 text-white">
+                  <span className="text-purple-400">📉</span>
+                  <h3 className="font-bold text-xl">Loss History</h3>
+                </div>
+                <TrainingChart history={neuralStatus?.training_history || []} />
+              </div>
+            )}
 
             {/* Training Data Stats */}
             <div className="glass rounded-[32px] p-8 shadow-xl">
@@ -1555,6 +3056,74 @@
               </div>
             </div>
           </div>
+          
+          {/* Supervised Learning Modal */}
+          <SupervisedLearningModal 
+            isOpen={showSupervisedModal} 
+            onClose={() => setShowSupervisedModal(false)} 
+          />
+          
+          {/* Checkpoint Save Modal */}
+          {showCheckpointModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setShowCheckpointModal(false)} />
+              <div className="relative glass rounded-[32px] p-8 max-w-md w-full">
+                <button 
+                  onClick={() => setShowCheckpointModal(false)}
+                  className="absolute top-4 right-4 text-slate-400 hover:text-white text-xl"
+                >×</button>
+                
+                <div className="flex items-center gap-3 mb-6">
+                  <span className="text-3xl">📦</span>
+                  <div>
+                    <h2 className="text-xl font-bold text-white">Save Checkpoint</h2>
+                    <p className="text-sm text-slate-400">Create a snapshot of current network</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Checkpoint Name *</label>
+                    <input
+                      type="text"
+                      value={checkpointName}
+                      onChange={(e) => setCheckpointName(e.target.value)}
+                      placeholder="e.g., rl_1000_games, before_supervised"
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Description (optional)</label>
+                    <textarea
+                      value={checkpointDesc}
+                      onChange={(e) => setCheckpointDesc(e.target.value)}
+                      placeholder="Notes about this checkpoint..."
+                      rows={2}
+                      className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white resize-none"
+                    />
+                  </div>
+                  
+                  <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-500/20 text-xs text-purple-300">
+                    <div className="font-bold mb-1">Current Network Stats:</div>
+                    <div className="text-slate-400">
+                      {(neuralStatus?.network_stats?.positions_trained || 0).toLocaleString()} positions trained • 
+                      v{neuralStatus?.network_stats?.version || 0} • 
+                      Loss: {(neuralStatus?.network_stats?.avg_loss || 0).toFixed(6)}
+                    </div>
+                  </div>
+                  
+                  <button
+                    onClick={saveCheckpoint}
+                    disabled={!checkpointName.trim()}
+                    className="w-full py-3 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-700 disabled:opacity-50 rounded-2xl font-bold text-white transition-all"
+                  >
+                    💾 Save Checkpoint
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
     };

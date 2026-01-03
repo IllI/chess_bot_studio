@@ -4,12 +4,478 @@ Provides REST endpoints for the training UI.
 """
 
 import json
+import threading
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from typing import Dict, Any, Optional, Callable
 from urllib.parse import urlparse
 
 from multi_bot_manager import get_bot_manager
 from config import DEFAULT_CONFIG
+
+
+# Global state for supervised training (thread-safe access)
+_supervised_training_state = {
+    'is_training': False,
+    'current_epoch': 0,
+    'total_epochs': 0,
+    'positions_trained': 0,
+    'target_positions': 0,
+    'current_loss': 0.0,
+    'final_loss': None,
+    'phase': 'idle',  # 'idle', 'training', 'complete', 'error'
+    'version': None
+}
+_supervised_training_lock = threading.Lock()
+
+
+# Global state for hybrid training (combines supervised + RL)
+_hybrid_training_state = {
+    'is_training': False,
+    'phase': 'idle',  # 'idle', 'supervised', 'self_play', 'rl_training', 'complete', 'error'
+    'total_games': 0,
+    'games_completed': 0,
+    'current_game': 0,
+    'positions_trained': 0,
+    'supervised_positions': 0,
+    'rl_positions': 0,
+    'current_loss': 0.0,
+    'best_loss': float('inf'),
+    'games_since_improvement': 0,
+    'version': 0,
+    'message': ''
+}
+_hybrid_training_lock = threading.Lock()
+
+
+def _run_hybrid_training(total_games: int, learning_rate: float, 
+                         supervised_ratio: float = 0.3, 
+                         search_depth: int = 2,
+                         save_interval: int = 100) -> None:
+    """
+    Run hybrid training combining supervised learning and reinforcement learning.
+    
+    TRAINS AFTER EVERY MOVE for immediate feedback!
+    
+    Strategy:
+    1. Play self-play games
+    2. After EACH MOVE, train on the position with supervised signal (heuristic)
+    3. After game ends, replay all positions with RL signal (outcome)
+    4. This gives immediate feedback + long-term outcome learning
+    
+    Training is CUMULATIVE - it continues from existing weights, never resets.
+    """
+    global _hybrid_training_state
+    
+    try:
+        from nn_trainer import get_nn_trainer, get_material_change
+        from evaluation import evaluate_board
+        from config import DEFAULT_CONFIG
+        import chess
+        import random
+        
+        print(f"[HybridTraining] Starting: {total_games} games, lr={learning_rate}, supervised_ratio={supervised_ratio}")
+        print(f"[HybridTraining] Training is CUMULATIVE - continuing from existing weights")
+        
+        trainer = get_nn_trainer()
+        
+        # DON'T reset - continue from existing weights
+        print(f"[HybridTraining] Starting with {trainer.network.positions_trained} existing positions trained")
+        
+        original_lr = trainer.network.learning_rate
+        trainer.network.learning_rate = learning_rate
+        
+        # Save initial checkpoint (but don't reset!)
+        if trainer.network.positions_trained > 0:
+            trainer.network.save_checkpoint(
+                f"pre_hybrid_{trainer.network.positions_trained}pos",
+                f"Before hybrid training ({total_games} games) - cumulative"
+            )
+        
+        config = DEFAULT_CONFIG
+        
+        # Track statistics for THIS session (not total)
+        session_positions = 0
+        session_loss = 0.0
+        best_loss = float('inf')
+        games_since_improvement = 0
+        
+        # Common openings for variety
+        openings = [
+            [],  # Start from initial position
+            ["e2e4"], ["d2d4"], ["c2c4"], ["g1f3"],
+            ["e2e4", "e7e5"], ["d2d4", "d7d5"], ["e2e4", "c7c5"],
+            ["e2e4", "e7e5", "g1f3", "b8c6"], ["d2d4", "g8f6", "c2c4"],
+            ["e2e4", "c7c5", "g1f3"], ["d2d4", "g8f6", "c2c4", "e7e6"],
+        ]
+        
+        for game_num in range(total_games):
+            # Check if training should stop
+            with _hybrid_training_lock:
+                if not _hybrid_training_state.get('is_training', True):
+                    print(f"[HybridTraining] Stopped by user at game {game_num}")
+                    break
+                    
+                _hybrid_training_state['phase'] = 'self_play'
+                _hybrid_training_state['current_game'] = game_num + 1
+                _hybrid_training_state['games_completed'] = game_num
+                _hybrid_training_state['message'] = f'Playing game {game_num + 1}/{total_games}'
+            
+            # Create a new game
+            board = chess.Board()
+            
+            # Apply random opening
+            opening = random.choice(openings)
+            for move_uci in opening:
+                try:
+                    board.push_uci(move_uci)
+                except:
+                    break
+            
+            # Store positions for end-of-game RL training
+            game_positions = []
+            move_count = 0
+            max_moves = 150
+            game_loss = 0.0
+            
+            # Play the game - TRAIN AFTER EVERY MOVE
+            while not board.is_game_over() and move_count < max_moves:
+                # Get heuristic evaluation
+                heuristic_eval = evaluate_board(board, config)
+                current_turn = board.turn
+                
+                # Store position for later RL training
+                game_positions.append({
+                    'fen': board.fen(),
+                    'heuristic_eval': heuristic_eval,
+                    'turn': current_turn,
+                    'move_number': move_count
+                })
+                
+                # === IMMEDIATE SUPERVISED TRAINING ===
+                # Train on this position RIGHT NOW with heuristic as target
+                supervised_target = max(-1.0, min(1.0, heuristic_eval / 1500.0))
+                
+                # Use supervised_ratio to weight this training
+                # Higher ratio = more weight on immediate heuristic feedback
+                loss = trainer.network.train_on_position(
+                    board, 
+                    supervised_target, 
+                    weight=supervised_ratio * 0.5  # Scale down to not overwhelm
+                )
+                game_loss += loss
+                session_positions += 1
+                
+                # Select move
+                legal_moves = list(board.legal_moves)
+                if not legal_moves:
+                    break
+                
+                # Move selection with some exploration
+                if random.random() < 0.15:  # 15% random for exploration
+                    move = random.choice(legal_moves)
+                else:
+                    # 1-ply search
+                    best_move = None
+                    best_score = float('-inf') if board.turn == chess.WHITE else float('inf')
+                    
+                    for m in legal_moves:
+                        board.push(m)
+                        score = evaluate_board(board, config)
+                        score += random.uniform(-15, 15)  # Noise for variety
+                        
+                        if board.turn == chess.BLACK:  # Just moved as white
+                            if score > best_score:
+                                best_score = score
+                                best_move = m
+                        else:  # Just moved as black
+                            if score < best_score:
+                                best_score = score
+                                best_move = m
+                        board.pop()
+                    
+                    move = best_move if best_move else random.choice(legal_moves)
+                
+                board.push(move)
+                move_count += 1
+            
+            # Determine game outcome
+            if board.is_checkmate():
+                outcome = 0.0 if board.turn == chess.WHITE else 1.0
+            else:
+                outcome = 0.5
+            
+            # === END-OF-GAME RL TRAINING ===
+            # Now replay all positions with the game outcome as additional signal
+            with _hybrid_training_lock:
+                _hybrid_training_state['phase'] = 'rl_training'
+                _hybrid_training_state['message'] = f'RL training game {game_num + 1}'
+            
+            rl_weight = (1 - supervised_ratio) * 0.5  # Scale to balance with supervised
+            
+            for pos_data in game_positions:
+                try:
+                    pos_board = chess.Board(pos_data['fen'])
+                    
+                    # RL target from game outcome
+                    if pos_data['turn'] == chess.WHITE:
+                        rl_target = outcome * 2 - 1  # 0->-1, 0.5->0, 1->1
+                    else:
+                        rl_target = (1 - outcome) * 2 - 1
+                    
+                    # Train with RL signal
+                    loss = trainer.network.train_on_position(pos_board, rl_target, weight=rl_weight)
+                    game_loss += loss
+                    session_positions += 1
+                    
+                except Exception:
+                    continue
+            
+            # Update statistics
+            avg_game_loss = game_loss / max(1, len(game_positions) * 2)  # *2 for supervised + RL
+            session_loss += avg_game_loss
+            
+            if avg_game_loss < best_loss:
+                best_loss = avg_game_loss
+                games_since_improvement = 0
+            else:
+                games_since_improvement += 1
+            
+            # Update state
+            with _hybrid_training_lock:
+                _hybrid_training_state['positions_trained'] = session_positions
+                _hybrid_training_state['current_loss'] = avg_game_loss
+                _hybrid_training_state['best_loss'] = best_loss
+                _hybrid_training_state['games_since_improvement'] = games_since_improvement
+            
+            # Log progress
+            if (game_num + 1) % 10 == 0:
+                avg_loss = session_loss / (game_num + 1)
+                total_trained = trainer.network.positions_trained
+                print(f"[HybridTraining] Game {game_num + 1}/{total_games} - "
+                      f"Session: {session_positions} pos, Total: {total_trained} pos, "
+                      f"Loss: {avg_loss:.6f}, Best: {best_loss:.6f}")
+            
+            # Save periodically AND hot-reload for Lichess
+            if (game_num + 1) % save_interval == 0:
+                trainer.network.save_weights()
+                trainer.network.save_checkpoint(
+                    f"hybrid_g{game_num + 1}_{trainer.network.positions_trained}pos",
+                    f"Game {game_num + 1}, {trainer.network.positions_trained} total positions"
+                )
+                
+                # Hot-reload for Lichess bot to use updated weights
+                try:
+                    from hybrid_evaluator import get_hybrid_evaluator
+                    from search import set_neural_evaluation
+                    evaluator = get_hybrid_evaluator()
+                    evaluator.reload_neural_network()
+                    # Enable neural evaluation if not already
+                    if evaluator.neural_blend > 0:
+                        set_neural_evaluation(True)
+                    print(f"[HybridTraining] Checkpoint saved & hot-reloaded at game {game_num + 1}")
+                except Exception as reload_err:
+                    print(f"[HybridTraining] Checkpoint saved at game {game_num + 1} (hot-reload failed: {reload_err})")
+        
+        # Final save
+        trainer.network.learning_rate = original_lr
+        trainer.network.save_weights()
+        
+        final_total = trainer.network.positions_trained
+        trainer.network.save_checkpoint(
+            f"hybrid_final_{total_games}g_{final_total}pos",
+            f"Final: {total_games} games this session, {final_total} total positions trained"
+        )
+        
+        # Hot-reload final weights for Lichess
+        try:
+            from hybrid_evaluator import get_hybrid_evaluator
+            from search import set_neural_evaluation
+            evaluator = get_hybrid_evaluator()
+            evaluator.reload_neural_network()
+            print(f"[HybridTraining] Final weights hot-reloaded for Lichess")
+        except Exception as reload_err:
+            print(f"[HybridTraining] Could not hot-reload final weights: {reload_err}")
+        
+        with _hybrid_training_lock:
+            _hybrid_training_state['phase'] = 'complete'
+            _hybrid_training_state['is_training'] = False
+            _hybrid_training_state['games_completed'] = total_games
+            _hybrid_training_state['version'] = trainer.network.version
+            _hybrid_training_state['message'] = f'Complete! {session_positions} positions this session, {final_total} total'
+        
+        print(f"[HybridTraining] Complete: {total_games} games, {session_positions} positions this session")
+        print(f"[HybridTraining] Total positions trained (cumulative): {final_total}")
+        
+    except Exception as e:
+        print(f"[HybridTraining] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        with _hybrid_training_lock:
+            _hybrid_training_state['phase'] = 'error'
+            _hybrid_training_state['is_training'] = False
+            _hybrid_training_state['message'] = str(e)
+
+
+def _run_supervised_training(num_positions: int, learning_rate: float, epochs: int) -> None:
+    """Run supervised training in background thread.
+    
+    IMPORTANT: This uses a much lower effective learning rate and generates
+    more realistic positions to avoid catastrophically overwriting RL learning.
+    Auto-saves a checkpoint before training starts.
+    """
+    global _supervised_training_state
+    
+    try:
+        from nn_trainer import get_nn_trainer
+        from evaluation import evaluate_board
+        from config import DEFAULT_CONFIG
+        import chess
+        import random
+        
+        print(f"[SupervisedTraining] Starting: {num_positions} positions, {epochs} epochs, lr={learning_rate}")
+        
+        trainer = get_nn_trainer()
+        
+        # AUTO-CHECKPOINT: Save current state before supervised training
+        # This allows recovery if supervised training damages the model
+        if trainer.network.positions_trained > 0:
+            checkpoint_name = f"pre_supervised_{trainer.network.positions_trained}pos"
+            trainer.network.save_checkpoint(
+                checkpoint_name, 
+                f"Auto-saved before supervised training ({num_positions} positions, {epochs} epochs)"
+            )
+            print(f"[SupervisedTraining] Auto-saved checkpoint: {checkpoint_name}")
+        
+        # CRITICAL: Use a much lower learning rate for supervised training
+        # to avoid catastrophically forgetting RL learning
+        # Scale down by factor of 10-20x from user-specified rate
+        effective_lr = learning_rate * 0.05  # 5% of specified rate
+        original_lr = trainer.network.learning_rate
+        trainer.network.learning_rate = effective_lr
+        
+        print(f"[SupervisedTraining] Using effective LR: {effective_lr} (scaled from {learning_rate})")
+        
+        with _supervised_training_lock:
+            _supervised_training_state['phase'] = 'training'
+        
+        positions_trained = 0
+        total_loss = 0.0
+        config = DEFAULT_CONFIG
+        
+        # Common opening moves for more realistic positions
+        common_openings = [
+            ["e2e4"], ["d2d4"], ["c2c4"], ["g1f3"],
+            ["e2e4", "e7e5"], ["d2d4", "d7d5"], ["e2e4", "c7c5"],
+            ["e2e4", "e7e5", "g1f3"], ["d2d4", "g8f6", "c2c4"],
+            ["e2e4", "e7e5", "g1f3", "b8c6"], ["d2d4", "d7d5", "c2c4"],
+        ]
+        
+        for epoch in range(epochs):
+            epoch_loss = 0.0
+            positions_per_epoch = num_positions // epochs
+            skipped = 0
+            
+            for pos_idx in range(positions_per_epoch):
+                board = chess.Board()
+                
+                # 30% chance to start from a common opening
+                if random.random() < 0.3 and common_openings:
+                    opening = random.choice(common_openings)
+                    for move_uci in opening:
+                        try:
+                            board.push_uci(move_uci)
+                        except:
+                            break
+                
+                # Play semi-random moves (prefer captures and checks for realism)
+                num_moves = random.randint(8, 40)  # More reasonable game length
+                
+                for _ in range(num_moves):
+                    legal_moves = list(board.legal_moves)
+                    if not legal_moves or board.is_game_over():
+                        break
+                    
+                    # Bias toward captures and checks for more tactical positions
+                    captures = [m for m in legal_moves if board.is_capture(m)]
+                    checks = [m for m in legal_moves if board.gives_check(m)]
+                    
+                    if captures and random.random() < 0.4:
+                        move = random.choice(captures)
+                    elif checks and random.random() < 0.3:
+                        move = random.choice(checks)
+                    else:
+                        move = random.choice(legal_moves)
+                    
+                    board.push(move)
+                
+                if board.is_game_over():
+                    skipped += 1
+                    continue
+                
+                # Skip positions with extreme material imbalance (unrealistic)
+                heuristic_eval = evaluate_board(board, config)
+                if abs(heuristic_eval) > 2000:  # Skip if > 20 pawns advantage
+                    skipped += 1
+                    continue
+                
+                # Normalize to [-1, 1] with softer scaling
+                # Use tanh-like scaling for smoother gradients
+                target = max(-1.0, min(1.0, heuristic_eval / 1500.0))
+                
+                # Lower weight for supervised samples to preserve RL learning
+                loss = trainer.network.train_on_position(board, target, weight=0.3)
+                epoch_loss += loss
+                positions_trained += 1
+                
+                # Update state periodically (every 50 positions)
+                if positions_trained % 50 == 0:
+                    with _supervised_training_lock:
+                        _supervised_training_state['positions_trained'] = positions_trained
+                        _supervised_training_state['current_loss'] = epoch_loss / max(1, pos_idx + 1 - skipped)
+            
+            avg_epoch_loss = epoch_loss / max(1, positions_per_epoch - skipped)
+            total_loss += avg_epoch_loss
+            
+            # Update state after each epoch
+            with _supervised_training_lock:
+                _supervised_training_state['current_epoch'] = epoch + 1
+                _supervised_training_state['current_loss'] = avg_epoch_loss
+                _supervised_training_state['positions_trained'] = positions_trained
+            
+            print(f"[SupervisedTraining] Epoch {epoch + 1}/{epochs} - Loss: {avg_epoch_loss:.6f} (skipped {skipped} unrealistic positions)")
+        
+        # Restore original learning rate
+        trainer.network.learning_rate = original_lr
+        
+        # Save the trained network
+        trainer.network.save_weights()
+        
+        final_loss = total_loss / max(1, epochs)
+        
+        with _supervised_training_lock:
+            _supervised_training_state['phase'] = 'complete'
+            _supervised_training_state['final_loss'] = final_loss
+            _supervised_training_state['is_training'] = False
+            _supervised_training_state['version'] = trainer.network.version
+        
+        print(f"[SupervisedTraining] Complete: {positions_trained} positions, final loss: {final_loss:.6f}")
+        print(f"[SupervisedTraining] Learning rate restored to: {original_lr}")
+        
+    except Exception as e:
+        print(f"[SupervisedTraining] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        # Try to restore learning rate on error
+        try:
+            trainer.network.learning_rate = original_lr
+        except:
+            pass
+        
+        with _supervised_training_lock:
+            _supervised_training_state['phase'] = 'error'
+            _supervised_training_state['is_training'] = False
 
 
 class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
@@ -24,7 +490,7 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.end_headers()
         self.wfile.write(json.dumps(data).encode("utf-8"))
@@ -60,6 +526,9 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
             "/api/neural/status": self._get_neural_status,
             "/api/neural/evaluate": self._get_neural_evaluate,
             "/api/neural/current-game": self._get_neural_current_game,
+            "/api/neural/supervised-status": self._get_neural_supervised_status,
+            "/api/neural/checkpoints": self._get_neural_checkpoints,
+            "/api/neural/hybrid-status": self._get_neural_hybrid_status,
         }
         
         # DEBUG: Check if path is in routes
@@ -100,10 +569,16 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
             "/api/neural/train": self._post_neural_train,
             "/api/neural/stop": self._post_neural_stop,
             "/api/neural/reset": self._post_neural_reset,
-            "/api/neural/bootstrap": self._post_neural_bootstrap,
             "/api/neural/learning-rate": self._post_neural_learning_rate,
             "/api/neural/save-and-apply": self._post_neural_save_and_apply,
             "/api/neural/blend": self._post_neural_blend,
+            "/api/neural/supervised-train": self._post_neural_supervised_train,
+            "/api/neural/live-supervised": self._post_neural_live_supervised,
+            "/api/neural/checkpoint/save": self._post_neural_checkpoint_save,
+            "/api/neural/checkpoint/load": self._post_neural_checkpoint_load,
+            "/api/neural/checkpoint/delete": self._post_neural_checkpoint_delete,
+            "/api/neural/hybrid-train": self._post_neural_hybrid_train,
+            "/api/neural/hybrid-stop": self._post_neural_hybrid_stop,
         }
         
         if path in routes:
@@ -461,28 +936,6 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
         result = trainer.reset_network()
         self._send_json(result)
 
-    def _post_neural_bootstrap(self) -> None:
-        """Bootstrap neural network with supervised learning from heuristic."""
-        from nn_trainer import get_nn_trainer
-        
-        body = self._read_json_body()
-        num_positions = body.get('num_positions', 2000)
-        
-        trainer = get_nn_trainer()
-        
-        # Run supervised training
-        result = trainer.network.train_supervised_from_heuristic(num_positions)
-        
-        # Also train on tactical positions
-        tactical_result = trainer.network.train_on_tactical_positions()
-        
-        self._send_json({
-            'ok': True,
-            'supervised': result,
-            'tactical': tactical_result,
-            'message': f'Bootstrapped network with {result["positions_trained"]} positions'
-        })
-
     def _post_neural_learning_rate(self) -> None:
         """Update neural network learning rate."""
         from nn_trainer import get_nn_trainer
@@ -560,6 +1013,261 @@ class ConfigAPIRequestHandler(BaseHTTPRequestHandler):
             'ok': True,
             'neural_blend': neural_blend
         })
+
+    def _post_neural_supervised_train(self) -> None:
+        """Start supervised learning in a background thread."""
+        import threading
+        
+        body = self._read_json_body()
+        num_positions = body.get('num_positions', 5000)
+        learning_rate = body.get('learning_rate', 0.01)
+        epochs = body.get('epochs', 10)
+        
+        # Check if supervised training is already running
+        global _supervised_training_state
+        if _supervised_training_state.get('is_training', False):
+            self._send_json({
+                'ok': False,
+                'error': 'Supervised training already in progress'
+            })
+            return
+        
+        # Initialize training state
+        _supervised_training_state['is_training'] = True
+        _supervised_training_state['current_epoch'] = 0
+        _supervised_training_state['total_epochs'] = epochs
+        _supervised_training_state['positions_trained'] = 0
+        _supervised_training_state['target_positions'] = num_positions
+        _supervised_training_state['current_loss'] = 0.0
+        _supervised_training_state['phase'] = 'starting'
+        
+        # Start training in background thread
+        training_thread = threading.Thread(
+            target=_run_supervised_training,
+            args=(num_positions, learning_rate, epochs),
+            daemon=True
+        )
+        training_thread.start()
+        
+        print(f"[ConfigAPI] Started supervised training thread: {num_positions} positions, {epochs} epochs, lr={learning_rate}")
+        
+        self._send_json({
+            'ok': True,
+            'message': f'Supervised training started: {num_positions} positions, {epochs} epochs'
+        })
+
+    def _get_neural_supervised_status(self) -> None:
+        """Get supervised training status."""
+        global _supervised_training_state, _supervised_training_lock
+        with _supervised_training_lock:
+            state_copy = dict(_supervised_training_state)
+        self._send_json({
+            'ok': True,
+            **state_copy
+        })
+
+    def _post_neural_live_supervised(self) -> None:
+        """Toggle live supervised learning during Lichess games."""
+        from pathlib import Path
+        import json
+        
+        body = self._read_json_body()
+        enabled = body.get('enabled', True)
+        
+        # Load existing config or create new
+        neural_config_path = Path(__file__).parent / "configs" / "neural_config.json"
+        neural_config_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        config = {}
+        if neural_config_path.exists():
+            try:
+                with open(neural_config_path, 'r') as f:
+                    config = json.load(f)
+            except Exception:
+                pass
+        
+        # Update the live supervised learning setting
+        config['live_supervised_learning'] = enabled
+        
+        with open(neural_config_path, 'w') as f:
+            json.dump(config, f, indent=2)
+        
+        status = "ENABLED" if enabled else "DISABLED"
+        print(f"[ConfigAPI] Live supervised learning {status}")
+        
+        self._send_json({
+            'ok': True,
+            'live_supervised_learning': enabled,
+            'message': f'Live supervised learning {status}'
+        })
+
+    # ==================== Checkpoint Management ====================
+
+    def _get_neural_checkpoints(self) -> None:
+        """List all available neural network checkpoints."""
+        from nn_trainer import get_nn_trainer
+        trainer = get_nn_trainer()
+        checkpoints = trainer.network.list_checkpoints()
+        self._send_json({
+            'ok': True,
+            'checkpoints': checkpoints
+        })
+
+    def _post_neural_checkpoint_save(self) -> None:
+        """Save current network as a checkpoint."""
+        from nn_trainer import get_nn_trainer
+        
+        body = self._read_json_body()
+        name = body.get('name', 'checkpoint')
+        description = body.get('description', '')
+        
+        if not name:
+            self._send_json({'ok': False, 'error': 'Checkpoint name required'}, 400)
+            return
+        
+        trainer = get_nn_trainer()
+        result = trainer.network.save_checkpoint(name, description)
+        self._send_json(result)
+
+    def _post_neural_checkpoint_load(self) -> None:
+        """Load a checkpoint."""
+        from nn_trainer import get_nn_trainer
+        
+        body = self._read_json_body()
+        filename = body.get('filename')
+        
+        if not filename:
+            self._send_json({'ok': False, 'error': 'Checkpoint filename required'}, 400)
+            return
+        
+        trainer = get_nn_trainer()
+        result = trainer.network.load_checkpoint(filename)
+        self._send_json(result)
+
+    def _post_neural_checkpoint_delete(self) -> None:
+        """Delete a checkpoint."""
+        from nn_trainer import get_nn_trainer
+        
+        body = self._read_json_body()
+        filename = body.get('filename')
+        
+        if not filename:
+            self._send_json({'ok': False, 'error': 'Checkpoint filename required'}, 400)
+            return
+        
+        trainer = get_nn_trainer()
+        result = trainer.network.delete_checkpoint(filename)
+        self._send_json(result)
+
+    # ==================== Hybrid Training ====================
+
+    def _get_neural_hybrid_status(self) -> None:
+        """Get hybrid training status."""
+        global _hybrid_training_state, _hybrid_training_lock
+        with _hybrid_training_lock:
+            state_copy = dict(_hybrid_training_state)
+        self._send_json({
+            'ok': True,
+            **state_copy
+        })
+
+    def _post_neural_hybrid_train(self) -> None:
+        """Start hybrid training (supervised + RL)."""
+        import threading
+        
+        body = self._read_json_body()
+        total_games = body.get('total_games', 1000)
+        learning_rate = body.get('learning_rate', 0.01)
+        supervised_ratio = body.get('supervised_ratio', 0.3)
+        save_interval = body.get('save_interval', 100)
+        
+        global _hybrid_training_state, _hybrid_training_lock
+        
+        with _hybrid_training_lock:
+            if _hybrid_training_state.get('is_training', False):
+                self._send_json({
+                    'ok': False,
+                    'error': 'Hybrid training already in progress'
+                })
+                return
+            
+            _hybrid_training_state['is_training'] = True
+            _hybrid_training_state['phase'] = 'starting'
+            _hybrid_training_state['total_games'] = total_games
+            _hybrid_training_state['games_completed'] = 0
+            _hybrid_training_state['positions_trained'] = 0
+            _hybrid_training_state['message'] = 'Initializing...'
+        
+        # Start training in background thread
+        training_thread = threading.Thread(
+            target=_run_hybrid_training,
+            args=(total_games, learning_rate, supervised_ratio, 2, save_interval),
+            daemon=True
+        )
+        training_thread.start()
+        
+        print(f"[ConfigAPI] Started hybrid training: {total_games} games, lr={learning_rate}, supervised_ratio={supervised_ratio}")
+        
+        self._send_json({
+            'ok': True,
+            'message': f'Hybrid training started: {total_games} games'
+        })
+
+    def _post_neural_hybrid_stop(self) -> None:
+        """Stop hybrid training and save progress."""
+        global _hybrid_training_state, _hybrid_training_lock
+        
+        with _hybrid_training_lock:
+            _hybrid_training_state['is_training'] = False
+            _hybrid_training_state['phase'] = 'stopping'
+            _hybrid_training_state['message'] = 'Stopping and saving progress...'
+        
+        # Save current progress immediately
+        try:
+            from nn_trainer import get_nn_trainer
+            trainer = get_nn_trainer()
+            
+            # Save weights
+            trainer.network.save_weights()
+            
+            # Save a checkpoint with current progress
+            games_done = _hybrid_training_state.get('games_completed', 0)
+            positions = trainer.network.positions_trained
+            trainer.network.save_checkpoint(
+                f"hybrid_stopped_g{games_done}_{positions}pos",
+                f"Stopped at game {games_done}, {positions} total positions"
+            )
+            
+            # Hot-reload for Lichess
+            try:
+                from hybrid_evaluator import get_hybrid_evaluator
+                evaluator = get_hybrid_evaluator()
+                evaluator.reload_neural_network()
+            except Exception:
+                pass
+            
+            with _hybrid_training_lock:
+                _hybrid_training_state['phase'] = 'stopped'
+                _hybrid_training_state['message'] = f'Stopped & saved at game {games_done} ({positions} positions)'
+            
+            print(f"[HybridTraining] Stopped and saved: {games_done} games, {positions} positions")
+            
+            self._send_json({
+                'ok': True,
+                'message': f'Training stopped and saved ({games_done} games, {positions} positions)',
+                'games_completed': games_done,
+                'positions_trained': positions
+            })
+        except Exception as e:
+            with _hybrid_training_lock:
+                _hybrid_training_state['phase'] = 'stopped'
+                _hybrid_training_state['message'] = f'Stopped (save error: {e})'
+            
+            self._send_json({
+                'ok': True,
+                'message': 'Training stopped (save may have failed)',
+                'error': str(e)
+            })
 
 
 def run_server(port: int = 5050) -> None:

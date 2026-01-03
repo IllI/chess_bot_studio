@@ -14,16 +14,6 @@ from config import PIECE_VALUES, MOBILITY_WEIGHT, PAWN_STRUCTURE_BONUS, KING_SAF
 
 logger = logging.getLogger(__name__)
 
-# Piece values for threat calculation
-THREAT_PIECE_VALUES = {
-    chess.PAWN: 100,
-    chess.KNIGHT: 320,
-    chess.BISHOP: 330,
-    chess.ROOK: 500,
-    chess.QUEEN: 900,
-    chess.KING: 20000  # Very high to prioritize king safety
-}
-
 
 def evaluate_board(board: chess.Board, config: Optional[Dict[str, Any]] = None) -> float:
     """
@@ -53,107 +43,7 @@ def evaluate_board(board: chess.Board, config: Optional[Dict[str, Any]] = None) 
     pawn_structure_score = evaluate_pawn_structure(board)
     king_safety_score = assess_king_safety(board, king_safety_penalty)
     
-    # CRITICAL: Add threat detection - penalize hanging pieces heavily
-    threat_score = evaluate_threats(board)
-    
-    return material_score + mobility_score + pawn_structure_score + king_safety_score + threat_score
-
-
-def evaluate_threats(board: chess.Board) -> float:
-    """
-    Evaluate tactical threats - hanging pieces and undefended attacks.
-    
-    This is CRITICAL for avoiding blunders like leaving a queen hanging.
-    Returns a score adjustment (negative if we have hanging pieces, positive if opponent does).
-    """
-    white_threat_score = _evaluate_side_threats(board, chess.WHITE)
-    black_threat_score = _evaluate_side_threats(board, chess.BLACK)
-    
-    # Return from white's perspective
-    return white_threat_score - black_threat_score
-
-
-def _evaluate_side_threats(board: chess.Board, color: chess.Color) -> float:
-    """
-    Evaluate threats for one side.
-    
-    Returns negative score for hanging pieces (bad), positive for attacking enemy pieces.
-    """
-    score = 0.0
-    enemy_color = not color
-    
-    # Check each of our pieces (except king - king safety is handled separately)
-    for square in chess.SQUARES:
-        piece = board.piece_at(square)
-        if piece is None or piece.color != color:
-            continue
-        
-        # Skip king - it's always "attacked" in some sense
-        if piece.piece_type == chess.KING:
-            continue
-        
-        piece_value = THREAT_PIECE_VALUES.get(piece.piece_type, 0)
-        
-        # Is this piece attacked?
-        attackers = board.attackers(enemy_color, square)
-        if attackers:
-            # Is it defended?
-            defenders = board.attackers(color, square)
-            
-            if not defenders:
-                # HANGING PIECE - very bad!
-                # Penalize based on piece value
-                score -= piece_value * 0.9  # Almost full value penalty
-            else:
-                # Piece is attacked and defended - check if trade is bad
-                # Find the least valuable attacker
-                min_attacker_value = float('inf')
-                for attacker_sq in attackers:
-                    attacker = board.piece_at(attacker_sq)
-                    if attacker:
-                        attacker_value = THREAT_PIECE_VALUES.get(attacker.piece_type, 0)
-                        min_attacker_value = min(min_attacker_value, attacker_value)
-                
-                # If we can be captured by a less valuable piece, that's bad
-                if min_attacker_value < piece_value:
-                    # Penalty proportional to the value difference
-                    score -= (piece_value - min_attacker_value) * 0.5
-    
-    # Check for attacks on enemy pieces (opportunities)
-    for square in chess.SQUARES:
-        piece = board.piece_at(square)
-        if piece is None or piece.color != enemy_color:
-            continue
-        
-        # Skip king
-        if piece.piece_type == chess.KING:
-            continue
-        
-        piece_value = THREAT_PIECE_VALUES.get(piece.piece_type, 0)
-        
-        # Can we attack this piece?
-        our_attackers = board.attackers(color, square)
-        if our_attackers:
-            # Is it defended?
-            their_defenders = board.attackers(enemy_color, square)
-            
-            if not their_defenders:
-                # Enemy has a hanging piece - good for us!
-                score += piece_value * 0.3  # Bonus for attacking hanging pieces
-            else:
-                # Check if we can win material
-                min_our_attacker = float('inf')
-                for attacker_sq in our_attackers:
-                    attacker = board.piece_at(attacker_sq)
-                    if attacker:
-                        attacker_value = THREAT_PIECE_VALUES.get(attacker.piece_type, 0)
-                        min_our_attacker = min(min_our_attacker, attacker_value)
-                
-                # If we can capture with a less valuable piece, that's good
-                if min_our_attacker < piece_value:
-                    score += (piece_value - min_our_attacker) * 0.2
-    
-    return score
+    return material_score + mobility_score + pawn_structure_score + king_safety_score
 
 
 def calculate_material_balance(board: chess.Board, piece_values: Dict[str, int] = None) -> float:

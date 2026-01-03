@@ -141,7 +141,10 @@ class ChessNeuralNetwork:
     
     def encode_position(self, board: chess.Board) -> List[float]:
         """
-        Encode position with rich features including material awareness and THREAT DETECTION.
+        Encode position with rich features including material awareness.
+        
+        The network must learn to recognize threats through reinforcement learning,
+        not through hand-crafted threat detection features.
         """
         features = [0.0] * self.input_size
         idx = 0
@@ -247,139 +250,10 @@ class ChessNeuralNetwork:
             features[idx] = abs(bk_file - 3.5) / 3.5
         idx += 1
         
-        # 12. CRITICAL: Threat detection features (12 features)
-        # These help the network understand tactical situations
-        white_hanging, white_attacked, white_threat_value = self._count_threats(board, chess.WHITE)
-        black_hanging, black_attacked, black_threat_value = self._count_threats(board, chess.BLACK)
-        
-        # Hanging pieces count (normalized)
-        features[idx] = white_hanging / 8.0
-        idx += 1
-        features[idx] = black_hanging / 8.0
-        idx += 1
-        
-        # Attacked pieces count (normalized)
-        features[idx] = white_attacked / 16.0
-        idx += 1
-        features[idx] = black_attacked / 16.0
-        idx += 1
-        
-        # Total threat value (normalized by queen value)
-        features[idx] = max(-1.0, min(1.0, white_threat_value / 900.0))
-        idx += 1
-        features[idx] = max(-1.0, min(1.0, black_threat_value / 900.0))
-        idx += 1
-        
-        # Net threat balance (positive = white has more threats on black)
-        net_threat = black_threat_value - white_threat_value  # Threats ON opponent
-        features[idx] = max(-1.0, min(1.0, net_threat / 1000.0))
-        idx += 1
-        
-        # Queen safety specifically (very important!)
-        white_queen_safe = self._is_queen_safe(board, chess.WHITE)
-        black_queen_safe = self._is_queen_safe(board, chess.BLACK)
-        features[idx] = 1.0 if white_queen_safe else -1.0
-        idx += 1
-        features[idx] = 1.0 if black_queen_safe else -1.0
-        idx += 1
-        
-        # Can capture hanging piece this move?
-        can_capture_hanging = self._can_capture_hanging(board)
-        features[idx] = 1.0 if can_capture_hanging else 0.0
-        idx += 1
-        
-        # Opponent can capture our hanging piece?
-        board_copy = board.copy()
-        board_copy.turn = not board_copy.turn
-        opponent_can_capture = self._can_capture_hanging(board_copy)
-        features[idx] = -1.0 if opponent_can_capture else 0.0
-        idx += 1
-        
         # Fill remaining features with zeros (padding to 833)
+        # The network must learn threat patterns through reinforcement learning
         
         return features
-    
-    def _count_threats(self, board: chess.Board, color: chess.Color) -> Tuple[int, int, float]:
-        """
-        Count threats against pieces of the given color.
-        
-        Returns:
-            (hanging_count, attacked_count, total_threat_value)
-        """
-        hanging = 0
-        attacked = 0
-        threat_value = 0.0
-        enemy_color = not color
-        
-        for square in chess.SQUARES:
-            piece = board.piece_at(square)
-            if piece is None or piece.color != color:
-                continue
-            
-            # Skip king - handled separately
-            if piece.piece_type == chess.KING:
-                continue
-            
-            piece_value = PIECE_VALUES.get(piece.piece_type, 0)
-            attackers = board.attackers(enemy_color, square)
-            
-            if attackers:
-                attacked += 1
-                defenders = board.attackers(color, square)
-                
-                if not defenders:
-                    # Hanging piece!
-                    hanging += 1
-                    threat_value += piece_value
-                else:
-                    # Check if trade is unfavorable
-                    min_attacker_value = min(
-                        PIECE_VALUES.get(board.piece_at(sq).piece_type, 0)
-                        for sq in attackers if board.piece_at(sq)
-                    )
-                    if min_attacker_value < piece_value:
-                        threat_value += (piece_value - min_attacker_value) * 0.5
-        
-        return hanging, attacked, threat_value
-    
-    def _is_queen_safe(self, board: chess.Board, color: chess.Color) -> bool:
-        """Check if the queen is safe (not hanging or attacked by lesser piece)."""
-        queens = board.pieces(chess.QUEEN, color)
-        if not queens:
-            return True  # No queen to worry about
-        
-        queen_square = list(queens)[0]
-        enemy_color = not color
-        attackers = board.attackers(enemy_color, queen_square)
-        
-        if not attackers:
-            return True  # Not attacked
-        
-        defenders = board.attackers(color, queen_square)
-        if not defenders:
-            return False  # Hanging queen!
-        
-        # Check if attacked by lesser piece
-        for attacker_sq in attackers:
-            attacker = board.piece_at(attacker_sq)
-            if attacker and PIECE_VALUES.get(attacker.piece_type, 0) < 900:
-                return False  # Attacked by piece worth less than queen
-        
-        return True
-    
-    def _can_capture_hanging(self, board: chess.Board) -> bool:
-        """Check if the side to move can capture a hanging piece."""
-        for move in board.legal_moves:
-            if board.is_capture(move):
-                captured_square = move.to_square
-                captured_piece = board.piece_at(captured_square)
-                if captured_piece:
-                    # Check if the captured piece is defended
-                    defenders = board.attackers(captured_piece.color, captured_square)
-                    # Exclude the piece itself from defenders
-                    if len(defenders) <= 1:  # Only the piece itself or nothing
-                        return True
-        return False
     
     def forward(self, features: List[float]) -> Tuple[float, Dict[str, Any]]:
         """Forward pass with 4 layers."""
@@ -513,130 +387,6 @@ class ChessNeuralNetwork:
         
         return loss
     
-    def train_supervised_from_heuristic(self, num_positions: int = 1000) -> Dict[str, float]:
-        """
-        Train the neural network to match the heuristic evaluation.
-        
-        This is CRITICAL for the network to learn basic chess knowledge:
-        - Material values
-        - Piece activity
-        - King safety
-        - Threat detection
-        
-        The heuristic already knows these things, so we teach the network
-        to replicate this knowledge, then it can improve from there.
-        """
-        from evaluation import evaluate_board
-        import random
-        
-        print(f"[NeuralNet] Starting supervised training on {num_positions} positions...")
-        
-        total_loss = 0.0
-        positions_trained = 0
-        
-        # Generate diverse positions by playing random games
-        for game_num in range(num_positions // 20):  # ~20 positions per game
-            board = chess.Board()
-            
-            # Play random moves to generate positions
-            for move_num in range(random.randint(5, 40)):
-                if board.is_game_over():
-                    break
-                
-                legal_moves = list(board.legal_moves)
-                if not legal_moves:
-                    break
-                
-                # Get heuristic evaluation for this position
-                heuristic_eval = evaluate_board(board)
-                
-                # Normalize to [-1, 1] range (heuristic is in centipawns)
-                # A queen advantage (~900) should map to ~0.9
-                target = max(-1.0, min(1.0, heuristic_eval / 1000.0))
-                
-                # Train on this position
-                loss = self.train_on_position(board, target, weight=1.0)
-                total_loss += loss
-                positions_trained += 1
-                
-                # Make a random move
-                move = random.choice(legal_moves)
-                board.push(move)
-            
-            if (game_num + 1) % 10 == 0:
-                avg_loss = total_loss / max(1, positions_trained)
-                print(f"[NeuralNet] Supervised training: {positions_trained} positions, avg loss: {avg_loss:.6f}")
-        
-        # Save weights
-        self.save_weights()
-        
-        avg_loss = total_loss / max(1, positions_trained)
-        print(f"[NeuralNet] Supervised training complete: {positions_trained} positions, final avg loss: {avg_loss:.6f}")
-        
-        return {
-            'positions_trained': positions_trained,
-            'avg_loss': avg_loss
-        }
-    
-    def train_on_tactical_positions(self) -> Dict[str, float]:
-        """
-        Train on specific tactical positions where the evaluation is clear.
-        
-        This teaches the network to recognize:
-        - Hanging pieces
-        - Material imbalances
-        - Checkmate threats
-        """
-        from evaluation import evaluate_board
-        
-        print("[NeuralNet] Training on tactical positions...")
-        
-        # Tactical positions with known evaluations
-        tactical_positions = [
-            # (FEN, description, expected_eval_sign)
-            # Material imbalances
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "Starting position", 0),
-            ("rnb1kbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "White up a queen", 1),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNB1KBNR w Qkq - 0 1", "Black up a queen", -1),
-            ("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN1 w Qkq - 0 1", "Black up a rook", -1),
-            ("rnbqkbn1/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQq - 0 1", "White up a rook", 1),
-            
-            # Hanging pieces
-            ("rnbqkbnr/pppp1ppp/8/4p3/3Q4/8/PPPP1PPP/RNB1KBNR b KQkq - 0 2", "White queen hanging", -1),
-            ("rnb1kbnr/pppp1ppp/8/4q3/3P4/8/PPP2PPP/RNBQKBNR w KQkq - 0 3", "Black queen hanging", 1),
-            ("rnbqkbnr/pppp1ppp/8/4R3/8/8/PPPP1PPP/RNBQKBN1 b KQkq - 0 2", "White rook hanging", -1),
-            
-            # Checkmate patterns
-            ("rnb1kbnr/pppp1ppp/4p3/8/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 0 1", "Scholar's mate threat", -1),
-            ("r1bqkb1r/pppp1ppp/2n2n2/4p2Q/2B1P3/8/PPPP1PPP/RNB1K1NR w KQkq - 0 4", "White threatens mate", 1),
-        ]
-        
-        total_loss = 0.0
-        
-        for fen, desc, expected_sign in tactical_positions:
-            board = chess.Board(fen)
-            heuristic_eval = evaluate_board(board)
-            
-            # Normalize to [-1, 1]
-            target = max(-1.0, min(1.0, heuristic_eval / 1000.0))
-            
-            # Verify the heuristic agrees with our expectation
-            if expected_sign != 0:
-                if (expected_sign > 0 and target < 0) or (expected_sign < 0 and target > 0):
-                    print(f"[NeuralNet] Warning: {desc} - heuristic disagrees (got {heuristic_eval:.0f})")
-            
-            # Train multiple times on each tactical position (they're important!)
-            for _ in range(10):
-                loss = self.train_on_position(board, target, weight=3.0)
-                total_loss += loss
-        
-        self.save_weights()
-        
-        avg_loss = total_loss / (len(tactical_positions) * 10)
-        print(f"[NeuralNet] Tactical training complete, avg loss: {avg_loss:.6f}")
-        
-        return {'avg_loss': avg_loss, 'positions': len(tactical_positions)}
-
     def train_on_move(self, fen_before: str, fen_after: str, 
                       material_change: float, game_outcome: float,
                       is_capture: bool, move_number: int) -> float:
@@ -852,3 +602,186 @@ class ChessNeuralNetwork:
         self.last_modified = datetime.now().isoformat()
         
         print("[NeuralNet] Weights reset to random initialization")
+
+    # ==================== CHECKPOINT MANAGEMENT ====================
+    
+    def get_checkpoints_dir(self) -> Path:
+        """Get the checkpoints directory path."""
+        return Path(__file__).parent / "configs" / "nn_checkpoints"
+    
+    def save_checkpoint(self, name: str, description: str = "") -> Dict[str, Any]:
+        """
+        Save current weights as a named checkpoint.
+        
+        Args:
+            name: Checkpoint name (e.g., 'rl_1000_games', 'before_supervised')
+            description: Optional description of this checkpoint
+            
+        Returns:
+            Dict with checkpoint info
+        """
+        checkpoints_dir = self.get_checkpoints_dir()
+        checkpoints_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Sanitize name for filename
+        safe_name = "".join(c if c.isalnum() or c in '-_' else '_' for c in name)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"{safe_name}_{timestamp}.json"
+        filepath = checkpoints_dir / filename
+        
+        data = {
+            'checkpoint_name': name,
+            'description': description,
+            'created_at': datetime.now().isoformat(),
+            'version': self.version,
+            'stats': {
+                'games_trained': self.games_trained,
+                'positions_trained': self.positions_trained,
+                'avg_loss': self.avg_loss
+            },
+            'hyperparameters': {
+                'learning_rate': self.learning_rate,
+                'input_size': self.input_size,
+                'hidden1_size': self.hidden1_size,
+                'hidden2_size': self.hidden2_size,
+                'hidden3_size': self.hidden3_size
+            },
+            'weights': {
+                'w1': self.weights1, 'b1': self.biases1,
+                'w2': self.weights2, 'b2': self.biases2,
+                'w3': self.weights3, 'b3': self.biases3,
+                'w4': self.weights4, 'b4': self.biases4
+            }
+        }
+        
+        with open(filepath, 'w') as f:
+            json.dump(data, f)
+        
+        print(f"[NeuralNet] Checkpoint saved: {name} ({self.positions_trained} positions, v{self.version})")
+        
+        return {
+            'ok': True,
+            'filename': filename,
+            'name': name,
+            'positions_trained': self.positions_trained,
+            'games_trained': self.games_trained,
+            'version': self.version
+        }
+    
+    def list_checkpoints(self) -> List[Dict[str, Any]]:
+        """
+        List all available checkpoints.
+        
+        Returns:
+            List of checkpoint info dicts
+        """
+        checkpoints_dir = self.get_checkpoints_dir()
+        if not checkpoints_dir.exists():
+            return []
+        
+        checkpoints = []
+        for filepath in sorted(checkpoints_dir.glob("*.json"), reverse=True):
+            try:
+                with open(filepath, 'r') as f:
+                    data = json.load(f)
+                
+                stats = data.get('stats', {})
+                checkpoints.append({
+                    'filename': filepath.name,
+                    'name': data.get('checkpoint_name', filepath.stem),
+                    'description': data.get('description', ''),
+                    'created_at': data.get('created_at', ''),
+                    'version': data.get('version', 0),
+                    'positions_trained': stats.get('positions_trained', 0),
+                    'games_trained': stats.get('games_trained', 0),
+                    'avg_loss': stats.get('avg_loss', 0.0)
+                })
+            except Exception as e:
+                print(f"[NeuralNet] Error reading checkpoint {filepath}: {e}")
+        
+        return checkpoints
+    
+    def load_checkpoint(self, filename: str) -> Dict[str, Any]:
+        """
+        Load weights from a checkpoint file.
+        
+        Args:
+            filename: Checkpoint filename to load
+            
+        Returns:
+            Dict with result info
+        """
+        checkpoints_dir = self.get_checkpoints_dir()
+        filepath = checkpoints_dir / filename
+        
+        if not filepath.exists():
+            return {'ok': False, 'error': f'Checkpoint not found: {filename}'}
+        
+        try:
+            with open(filepath, 'r') as f:
+                data = json.load(f)
+            
+            # Check architecture compatibility
+            hp = data.get('hyperparameters', {})
+            if hp.get('hidden3_size') != self.hidden3_size:
+                return {'ok': False, 'error': 'Architecture mismatch - checkpoint incompatible'}
+            
+            # Load weights
+            weights = data.get('weights', {})
+            self.weights1 = weights.get('w1', self.weights1)
+            self.biases1 = weights.get('b1', self.biases1)
+            self.weights2 = weights.get('w2', self.weights2)
+            self.biases2 = weights.get('b2', self.biases2)
+            self.weights3 = weights.get('w3', self.weights3)
+            self.biases3 = weights.get('b3', self.biases3)
+            self.weights4 = weights.get('w4', self.weights4)
+            self.biases4 = weights.get('b4', self.biases4)
+            
+            # Load stats
+            stats = data.get('stats', {})
+            self.version = data.get('version', 0)
+            self.games_trained = stats.get('games_trained', 0)
+            self.positions_trained = stats.get('positions_trained', 0)
+            self.avg_loss = stats.get('avg_loss', 0.0)
+            self.last_modified = datetime.now().isoformat()
+            
+            checkpoint_name = data.get('checkpoint_name', filename)
+            print(f"[NeuralNet] Loaded checkpoint: {checkpoint_name} ({self.positions_trained} positions)")
+            
+            # Also save as current weights
+            self.save_weights()
+            
+            return {
+                'ok': True,
+                'name': checkpoint_name,
+                'positions_trained': self.positions_trained,
+                'games_trained': self.games_trained,
+                'version': self.version
+            }
+            
+        except Exception as e:
+            print(f"[NeuralNet] Error loading checkpoint: {e}")
+            return {'ok': False, 'error': str(e)}
+    
+    def delete_checkpoint(self, filename: str) -> Dict[str, Any]:
+        """
+        Delete a checkpoint file.
+        
+        Args:
+            filename: Checkpoint filename to delete
+            
+        Returns:
+            Dict with result info
+        """
+        checkpoints_dir = self.get_checkpoints_dir()
+        filepath = checkpoints_dir / filename
+        
+        if not filepath.exists():
+            return {'ok': False, 'error': f'Checkpoint not found: {filename}'}
+        
+        try:
+            filepath.unlink()
+            print(f"[NeuralNet] Deleted checkpoint: {filename}")
+            return {'ok': True, 'deleted': filename}
+        except Exception as e:
+            return {'ok': False, 'error': str(e)}

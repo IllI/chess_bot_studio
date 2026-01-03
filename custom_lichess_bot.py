@@ -469,14 +469,44 @@ class LichessBotClient:
             if hasattr(self, 'active_games') and game_id in self.active_games:
                 game_info = self.active_games[game_id]
                 moves_list = moves.split() if moves else []
+                previous_move_count = game_info.get('move_count', 0)
                 
                 # Reconstruct board from scratch with all moves from Lichess
                 # This ensures our board is always in sync with Lichess
                 board = chess.Board()
-                for move_str in moves_list:
+                
+                # Track positions for neural network training
+                # We need to record each NEW move that we haven't seen before
+                new_moves_to_record = []
+                
+                for i, move_str in enumerate(moves_list):
                     try:
+                        fen_before = board.fen()
                         move = chess.Move.from_uci(move_str)
                         if move in board.legal_moves:
+                            # Check if this is a new move we haven't recorded yet
+                            if i >= previous_move_count:
+                                # Calculate material change for this move
+                                is_capture = board.is_capture(move)
+                                captured_value = 0
+                                if is_capture:
+                                    captured_sq = move.to_square
+                                    if board.is_en_passant(move):
+                                        captured_value = 100  # Pawn value
+                                    else:
+                                        captured_piece = board.piece_at(captured_sq)
+                                        if captured_piece:
+                                            from config import PIECE_VALUES as CFG_PIECE_VALUES
+                                            captured_value = CFG_PIECE_VALUES.get(captured_piece.piece_type, 0)
+                                
+                                new_moves_to_record.append({
+                                    'fen_before': fen_before,
+                                    'move_uci': move_str,
+                                    'move_number': i + 1,
+                                    'is_capture': is_capture,
+                                    'captured_value': captured_value
+                                })
+                            
                             board.push(move)
                         else:
                             logger.error(f"Move {move_str} not legal in position {board.fen()}")
@@ -487,6 +517,72 @@ class LichessBotClient:
                 game_info['move_count'] = len(moves_list)
                 logger.info(f"[BoardSync] Reconstructed board: {board.fen()}")
                 logger.info(f"[BoardSync] {len(moves_list)} moves played, turn: {'white' if board.turn else 'black'}")
+                
+                # Record new moves for neural network training (per-move learning)
+                if new_moves_to_record:
+                    try:
+                        from nn_trainer import get_nn_trainer, get_material_change
+                        trainer = get_nn_trainer()
+                        
+                        for move_data in new_moves_to_record:
+                            # Calculate full material change
+                            board_before = chess.Board(move_data['fen_before'])
+                            move = chess.Move.from_uci(move_data['move_uci'])
+                            board_after = board_before.copy()
+                            board_after.push(move)
+                            
+                            material_change, is_capture, captured_value = get_material_change(
+                                board_before, board_after, move, board_before.turn
+                            )
+                            
+                            trainer.data_collector.record_move(
+                                game_id=game_id,
+                                fen_before=move_data['fen_before'],
+                                move_uci=move_data['move_uci'],
+                                move_number=move_data['move_number'],
+                                fen_after=board_after.fen(),
+                                material_change=material_change,
+                                is_capture=is_capture,
+                                captured_piece_value=captured_value
+                            )
+                        
+                        logger.info(f"[NNTrainer] Recorded {len(new_moves_to_record)} new move(s) for training")
+                    except Exception as e:
+                        logger.warning(f"Could not record moves for NN training: {e}")
+                
+                # SUPERVISED LEARNING: Train on each new position using heuristic as teacher
+                # This provides immediate learning during live games
+                live_sl_enabled = game_info.get('live_supervised_learning', True)
+                if new_moves_to_record and not board.is_game_over() and live_sl_enabled:
+                    try:
+                        from nn_trainer import get_nn_trainer
+                        from evaluation import evaluate_board
+                        from config import DEFAULT_CONFIG
+                        
+                        trainer = get_nn_trainer()
+                        
+                        # ALWAYS train - even if network is fresh (positions_trained == 0)
+                        # This ensures learning starts from the very first game
+                        # Train on the current position (after all moves)
+                        heuristic_eval = evaluate_board(board, DEFAULT_CONFIG)
+                        
+                        # Normalize to [-1, 1] range
+                        target = max(-1.0, min(1.0, heuristic_eval / 1500.0))
+                        
+                        # Use a small learning rate for live supervised learning
+                        # to avoid destabilizing the network during play
+                        original_lr = trainer.network.learning_rate
+                        trainer.network.learning_rate = min(0.005, original_lr * 0.5)
+                        
+                        loss = trainer.network.train_on_position(board, target, weight=0.5)
+                        
+                        # Restore learning rate
+                        trainer.network.learning_rate = original_lr
+                        
+                        logger.info(f"[SupervisedLearning] Live training on position, loss: {loss:.6f}, target: {target:.4f}")
+                    except Exception as e:
+                        # Don't let supervised learning errors affect gameplay
+                        logger.debug(f"Supervised learning skipped: {e}")
             else:
                 logger.warning(f"Game {game_id} not in active_games!")
             
@@ -548,14 +644,30 @@ class LichessBotClient:
             if not hasattr(self, 'active_games'):
                 self.active_games = {}
             
+            # Check if live supervised learning is enabled
+            live_supervised_learning = False
+            try:
+                from pathlib import Path
+                neural_config_path = Path(__file__).parent / "configs" / "neural_config.json"
+                if neural_config_path.exists():
+                    with open(neural_config_path, 'r') as f:
+                        neural_config = json.load(f)
+                    live_supervised_learning = neural_config.get('live_supervised_learning', True)
+            except Exception:
+                live_supervised_learning = True  # Default to enabled
+            
             self.active_games[game_id] = {
                 'color': our_color,
                 'white': white_player,
                 'black': black_player,
                 'board': chess.Board(),
                 'started_at': time.time(),
-                'move_count': 0
+                'move_count': 0,
+                'live_supervised_learning': live_supervised_learning
             }
+            
+            if live_supervised_learning:
+                logger.info(f"[SupervisedLearning] Live supervised learning ENABLED for game {game_id}")
             
             # Start neural network data collection (non-blocking)
             try:
@@ -755,6 +867,111 @@ class LichessBotClient:
                     logger.warning(f"Error with neural network training: {e}")
                     import traceback
                     traceback.print_exc()
+                
+                # POST-GAME SUPERVISED LEARNING REPLAY
+                # Replay the entire game with full learning rate to maximize learning from human games
+                # This is valuable because human opponents provide diverse, high-quality positions
+                try:
+                    live_sl_enabled = game_info.get('live_supervised_learning', True)
+                    if live_sl_enabled and game_info.get('move_count', 0) > 0:
+                        from nn_trainer import get_nn_trainer
+                        from evaluation import evaluate_board
+                        from config import DEFAULT_CONFIG
+                        
+                        trainer = get_nn_trainer()
+                        
+                        # ALWAYS do post-game replay - even for fresh networks
+                        logger.info(f"[SupervisedReplay] Starting post-game supervised learning replay...")
+                        
+                        # Reconstruct and replay all positions from the game
+                        replay_board = chess.Board()
+                        positions_trained = 0
+                        total_loss = 0.0
+                        
+                        # Get the moves from the game
+                        game_moves = []
+                        try:
+                            # Get moves from the completed games data
+                            for game in trainer.data_collector.completed_games:
+                                if game.game_id == game_id:
+                                    game_moves = [m.get('move_uci') for m in game.moves if m.get('move_uci')]
+                                    break
+                        except Exception:
+                            pass
+                        
+                        # If we couldn't get moves from data collector, reconstruct from board history
+                        if not game_moves:
+                            # The board object has the move stack
+                            game_moves = [m.uci() for m in board.move_stack]
+                        
+                        if game_moves:
+                            # Use full learning rate for post-game replay
+                            # Adjust based on game outcome - learn more from losses
+                            if outcome == 'loss':
+                                replay_lr = min(0.02, trainer.network.learning_rate * 2)
+                                replay_weight = 1.5  # Higher weight for loss positions
+                            elif outcome == 'win':
+                                replay_lr = trainer.network.learning_rate
+                                replay_weight = 1.0
+                            else:  # draw
+                                replay_lr = trainer.network.learning_rate * 0.8
+                                replay_weight = 0.8
+                            
+                            original_lr = trainer.network.learning_rate
+                            trainer.network.learning_rate = replay_lr
+                            
+                            # Replay each position
+                            for move_uci in game_moves:
+                                try:
+                                    # Train on position BEFORE the move
+                                    if not replay_board.is_game_over():
+                                        heuristic_eval = evaluate_board(replay_board, DEFAULT_CONFIG)
+                                        target = max(-1.0, min(1.0, heuristic_eval / 1500.0))
+                                        
+                                        loss = trainer.network.train_on_position(
+                                            replay_board, target, weight=replay_weight
+                                        )
+                                        total_loss += loss
+                                        positions_trained += 1
+                                    
+                                    # Make the move
+                                    move = chess.Move.from_uci(move_uci)
+                                    if move in replay_board.legal_moves:
+                                        replay_board.push(move)
+                                except Exception as move_err:
+                                    logger.debug(f"Replay move error: {move_err}")
+                                    continue
+                            
+                            # Train on final position too
+                            if not replay_board.is_game_over() and positions_trained > 0:
+                                try:
+                                    heuristic_eval = evaluate_board(replay_board, DEFAULT_CONFIG)
+                                    target = max(-1.0, min(1.0, heuristic_eval / 1500.0))
+                                    loss = trainer.network.train_on_position(
+                                        replay_board, target, weight=replay_weight
+                                    )
+                                    total_loss += loss
+                                    positions_trained += 1
+                                except Exception:
+                                    pass
+                            
+                            # Restore learning rate
+                            trainer.network.learning_rate = original_lr
+                            
+                            if positions_trained > 0:
+                                avg_loss = total_loss / positions_trained
+                                trainer.network.save_weights()
+                                logger.info(f"[SupervisedReplay] Replayed {positions_trained} positions, avg loss: {avg_loss:.6f}, outcome: {outcome}")
+                                
+                                # Hot-reload after replay training
+                                try:
+                                    from hybrid_evaluator import get_hybrid_evaluator
+                                    evaluator = get_hybrid_evaluator()
+                                    evaluator.reload_neural_network()
+                                except Exception:
+                                    pass
+                except Exception as e:
+                    logger.warning(f"Error in post-game supervised replay: {e}")
                 
                 # Online learning - record game result
                 try:

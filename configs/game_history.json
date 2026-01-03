@@ -626,7 +626,172 @@
       },
       "timestamp": "2026-01-01T17:48:11.732450",
       "move_count": 51
+    },
+    {
+      "game_id": "NqeVPht3",
+      "outcome": "loss",
+      "our_color": "white",
+      "opponent_rating": 1500,
+      "config_snapshot": {
+        "piece_values": {
+          "pawn": 90,
+          "knight": 256,
+          "bishop": 303,
+          "rook": 419,
+          "queen": 601,
+          "king": 0
+        },
+        "mobility_weight": 3.6,
+        "pawn_structure_bonus": {
+          "passed_pawn": 50,
+          "doubled_pawn": -20,
+          "isolated_pawn": -15,
+          "backward_pawn": -10,
+          "connected_pawns": 5
+        },
+        "king_safety_penalty": {
+          "open_file_near_king": -32,
+          "weak_pawn_shield": -22,
+          "king_in_center": -45,
+          "enemy_pieces_near_king": -15
+        },
+        "search_depth": 5
+      },
+      "timestamp": "2026-01-01T23:03:34.362969",
+      "move_count": 36
+    },
+    {
+      "game_id": "vpg9fyMW",
+      "outcome": "loss",
+      "our_color": "black",
+      "opponent_rating": 1500,
+      "config_snapshot": {
+        "piece_values": {
+          "pawn": 119,
+          "knight": 256,
+          "bishop": 234,
+          "rook": 325,
+          "queen": 601,
+          "king": 0
+        },
+        "mobility_weight": 3.6,
+        "pawn_structure_bonus": {
+          "passed_pawn": 50,
+          "doubled_pawn": -20,
+          "isolated_pawn": -15,
+          "backward_pawn": -10,
+          "connected_pawns": 5
+        },
+        "king_safety_penalty": {
+          "open_file_near_king": -32,
+          "weak_pawn_shield": -22,
+          "king_in_center": -45,
+          "enemy_pieces_near_king": -15
+        },
+        "search_depth": 5
+      },
+      "timestamp": "2026-01-02T00:11:17.778709",
+      "move_count": 29
+    },
+    {
+      "game_id": "Sphz7USy",
+      "outcome": "loss",
+      "our_color": "white",
+      "opponent_rating": 1500,
+      "config_snapshot": {
+        "piece_values": {
+          "pawn": 119,
+          "knight": 256,
+          "bishop": 234,
+          "rook": 329,
+          "queen": 440,
+          "king": 0
+        },
+        "mobility_weight": 3.6,
+        "pawn_structure_bonus": {
+          "passed_pawn": 50,
+          "doubled_pawn": -20,
+          "isolated_pawn": -15,
+          "backward_pawn": -10,
+          "connected_pawns": 5
+        },
+        "king_safety_penalty": {
+          "open_file_near_king": -32,
+          "weak_pawn_shield": -22,
+          "king_in_center": -45,
+          "enemy_pieces_near_king": -15
+        },
+        "search_depth": 5
+      },
+      "timestamp": "2026-01-02T01:25:09.008543",
+      "move_count": 26
+    },
+    {
+      "game_id": "ksiIyJlp",
+      "outcome": "loss",
+      "our_color": "black",
+      "opponent_rating": 1500,
+      "config_snapshot": {
+        "piece_values": {
+          "pawn": 119,
+          "knight": 256,
+          "bishop": 217,
+          "rook": 280,
+          "queen": 356,
+          "king": 0
+        },
+        "mobility_weight": 3.6,
+        "pawn_structure_bonus": {
+          "passed_pawn": 50,
+          "doubled_pawn": -20,
+          "isolated_pawn": -15,
+          "backward_pawn": -10,
+          "connected_pawns": 5
+        },
+        "king_safety_penalty": {
+          "open_file_near_king": -32,
+          "weak_pawn_shield": -27,
+          "king_in_center": -49,
+          "enemy_pieces_near_king": -15
+        },
+        "search_depth": 5
+      },
+      "timestamp": "2026-01-02T01:39:15.496447",
+      "move_count": 31
+    },
+    {
+      "game_id": "2ueRgeAF",
+      "outcome": "loss",
+      "our_color": "white",
+      "opponent_rating": 1500,
+      "config_snapshot": {
+        "piece_values": {
+          "pawn": 119,
+          "knight": 256,
+          "bishop": 279,
+          "rook": 248,
+          "queen": 381,
+          "king": 0
+        },
+        "mobility_weight": 3.0,
+        "pawn_structure_bonus": {
+          "passed_pawn": 50,
+          "doubled_pawn": -20,
+          "isolated_pawn": -15,
+          "backward_pawn": -10,
+          "connected_pawns": 5
+        },
+        "king_safety_penalty": {
+          "open_file_near_king": -32,
+          "weak_pawn_shield": -27,
+          "king_in_center": -49,
+          "enemy_pieces_near_king": -15
+        },
+        "search_depth": 5
+      },
+      "timestamp": "2026-01-02T21:44:05.042656",
+      "move_count": 30
     }
   ],
-  "updated_at": "2026-01-01T17:48:11.734021"
+  "updated_at": "2026-01-02T21:44:05.046951"
 }
