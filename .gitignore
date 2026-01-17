@@ -46,3 +46,4 @@ Thumbs.db
 # Chess engine specific
 games/
 analysis_reports/
+configs/user_profile.json
